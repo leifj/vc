@@ -42,9 +42,18 @@ func (c *Client) CreateRequestObject(ctx context.Context, sessionID string, pres
 
 // createPresentationDefinition maps OIDC scopes to OpenID4VP presentation definition
 func (c *Client) createPresentationDefinition(scopes []string) (any, error) {
-	// For now, create a simple presentation definition
-	// TODO: Map scopes to actual credential requirements from config
+	// If presentation builder is configured, use template-based approach
+	if c.presentationBuilder != nil {
+		pd, err := c.presentationBuilder.BuildPresentationDefinition(context.Background(), scopes)
+		if err != nil {
+			c.log.Info("Failed to build presentation definition from templates, falling back to legacy mapping", "error", err)
+			// Fall through to legacy behavior
+		} else {
+			return pd, nil
+		}
+	}
 
+	// Legacy behavior: use hard-coded scope mapping from config
 	inputDescriptors := []openid4vp.InputDescriptor{}
 
 	for _, scope := range scopes {

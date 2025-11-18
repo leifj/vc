@@ -11,7 +11,6 @@ import (
 	"math/big"
 	"time"
 	"vc/internal/verifier_proxy/db"
-	"vc/pkg/sdjwt3"
 
 	"github.com/skip2/go-qrcode"
 )
@@ -88,6 +87,7 @@ type DiscoveryMetadata struct {
 	TokenEndpoint                     string   `json:"token_endpoint"`
 	UserInfoEndpoint                  string   `json:"userinfo_endpoint"`
 	JwksURI                           string   `json:"jwks_uri"`
+	RegistrationEndpoint              string   `json:"registration_endpoint,omitempty"` // RFC 7591
 	ResponseTypesSupported            []string `json:"response_types_supported"`
 	SubjectTypesSupported             []string `json:"subject_types_supported"`
 	IDTokenSigningAlgValuesSupported  []string `json:"id_token_signing_alg_values_supported"`
@@ -230,14 +230,14 @@ func (c *Client) ProcessDirectPost(ctx context.Context, req *DirectPostRequest) 
 	// Validate and parse VP token using sdjwt3
 	c.log.Debug("Processing VP token", "state", req.State, "vp_token_length", len(req.VPToken))
 
-	// Parse SD-JWT and extract disclosed claims
-	claims, err := sdjwt3.CredentialParser(ctx, req.VPToken)
+	// Extract and map claims from VP token
+	oidcClaims, err := c.extractAndMapClaims(ctx, req.VPToken, session.OIDCRequest.Scope)
 	if err != nil {
-		c.log.Error(err, "Failed to parse VP token")
+		c.log.Error(err, "Failed to extract and map claims from VP token")
 		return nil, ErrInvalidVP
 	}
 
-	c.log.Debug("Extracted claims from VP", "claims", claims)
+	c.log.Debug("Mapped OIDC claims from VP", "claims", oidcClaims)
 
 	// Validate signature if we have a public key
 	// TODO: Retrieve public key from wallet metadata or cnf claim
@@ -255,11 +255,11 @@ func (c *Client) ProcessDirectPost(ctx context.Context, req *DirectPostRequest) 
 	// Update session with VP data
 	session.OpenID4VP.VPToken = req.VPToken
 	session.OpenID4VP.PresentationSubmission = presentationSubmission
-	session.VerifiedClaims = claims
+	session.VerifiedClaims = oidcClaims // Store mapped OIDC claims
 	session.Status = db.SessionStatusCodeIssued
 
 	// Extract wallet ID from claims (sub or other identifier)
-	if sub, ok := claims["sub"].(string); ok {
+	if sub, ok := oidcClaims["sub"].(string); ok {
 		session.OpenID4VP.WalletID = sub
 	}
 
@@ -275,7 +275,7 @@ func (c *Client) ProcessDirectPost(ctx context.Context, req *DirectPostRequest) 
 		return nil, ErrServerError
 	}
 
-	c.log.Info("VP processed successfully", "session_id", session.ID, "claims_count", len(claims))
+	c.log.Info("VP processed successfully", "session_id", session.ID, "claims_count", len(oidcClaims))
 
 	// Return redirect URI if present
 	redirectURI := ""

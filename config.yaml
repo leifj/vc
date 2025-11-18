@@ -143,15 +143,26 @@ verifier_proxy:
       enabled: false
   external_url: "http://vc_dev_verifier_proxy:8080"
   oidc:
+    # OIDC Provider identifier (issuer of ID tokens and access tokens)
+    # This identifies the verifier-proxy as an OpenID Provider
+    # NOT related to verifiable credential issuance (see cmd/issuer/)
+    # Must match the 'iss' claim in ID tokens sent to relying parties
     issuer: "http://vc_dev_verifier_proxy:8080"
     signing_key_path: "/private_rsa.pem"
-    id_token_duration: 3600
-    access_token_duration: 3600
-    refresh_token_duration: 86400
+    signing_alg: "RS256"                 # Signing algorithm for ID tokens (RS256, RS384, RS512, ES256, ES384, ES512)
+    session_duration: 900                # Session duration in seconds (15 minutes)
+    code_duration: 600                   # Authorization code duration in seconds (10 minutes)
+    access_token_duration: 3600          # Access token duration in seconds (1 hour)
+    id_token_duration: 3600              # ID token duration in seconds (1 hour)
+    refresh_token_duration: 86400        # Refresh token duration in seconds (24 hours)
     subject_type: "pairwise"
     subject_salt: "change-this-in-production"
   openid4vp:
     presentation_timeout: 300
+    # Template-based presentation requests (optional)
+    # When configured, DCQL queries are loaded from YAML templates
+    # Falls back to supported_credentials if templates not found or disabled
+    presentation_requests_dir: "/presentation_requests"
     supported_credentials:
       - vct: "urn:eudi:pid:1"
         scopes:

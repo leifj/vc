@@ -1,0 +1,23 @@
+templates:
+  - id: "test_pid"
+    name: "Test PID Credential"
+    description: "Test presentation request for PID credential"
+    version: "1.0"
+    oidc_scopes:
+      - "pid"
+    dcql:
+      credentials:
+        - id: "pid_credential"
+          format: "vc+sd-jwt"
+          meta:
+            vct_values:
+              - "urn:eu:pid:1"
+          claims:
+            - path: ["given_name"]
+            - path: ["family_name"]
+            - path: ["birthdate"]
+    claim_mappings:
+      given_name: "given_name"
+      family_name: "family_name"
+      birthdate: "birthdate"
+    enabled: true

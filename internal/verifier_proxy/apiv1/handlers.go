@@ -2,22 +2,7 @@ package apiv1
 
 import (
 	"context"
-	"errors"
 	"vc/internal/gen/status/apiv1_status"
-)
-
-var (
-	ErrInvalidClient        = errors.New("invalid client")
-	ErrInvalidGrant         = errors.New("invalid grant")
-	ErrInvalidRequest       = errors.New("invalid request")
-	ErrInvalidScope         = errors.New("invalid scope")
-	ErrUnauthorizedClient   = errors.New("unauthorized client")
-	ErrUnsupportedGrantType = errors.New("unsupported grant type")
-	ErrAccessDenied         = errors.New("access denied")
-	ErrServerError          = errors.New("server error")
-	ErrSessionNotFound      = errors.New("session not found")
-	ErrSessionExpired       = errors.New("session expired")
-	ErrInvalidVP            = errors.New("invalid verifiable presentation")
 )
 
 // Health returns the health status

@@ -166,8 +166,13 @@ type VerifierProxy struct {
 	OpenID4VP   OpenID4VPConfig `yaml:"openid4vp" validate:"required"`
 }
 
-// OIDCConfig holds OIDC-specific configuration
+// OIDCConfig holds OIDC-specific configuration for the verifier-proxy's role as an OpenID Provider.
+// This configures how the verifier-proxy issues ID tokens and access tokens to relying parties.
+// Note: This is NOT related to verifiable credential issuance (see IssuerConfig for VC issuance).
 type OIDCConfig struct {
+	// Issuer is the OIDC Provider identifier that appears in ID tokens and discovery metadata.
+	// This identifies the verifier-proxy itself as an OpenID Provider.
+	// Must match the 'iss' claim in all issued ID tokens.
 	Issuer               string `yaml:"issuer" validate:"required"`
 	SigningKeyPath       string `yaml:"signing_key_path" validate:"required"`
 	SigningAlg           string `yaml:"signing_alg" validate:"required,oneof=RS256 RS384 RS512 ES256 ES384 ES512"`
@@ -182,8 +187,9 @@ type OIDCConfig struct {
 
 // OpenID4VPConfig holds OpenID4VP-specific configuration
 type OpenID4VPConfig struct {
-	PresentationTimeout  int                         `yaml:"presentation_timeout" validate:"required"`
-	SupportedCredentials []SupportedCredentialConfig `yaml:"supported_credentials" validate:"required"`
+	PresentationTimeout     int                         `yaml:"presentation_timeout" validate:"required"`
+	SupportedCredentials    []SupportedCredentialConfig `yaml:"supported_credentials" validate:"required"`
+	PresentationRequestsDir string                      `yaml:"presentation_requests_dir,omitempty"` // Optional: directory with presentation request templates
 }
 
 // SupportedCredentialConfig maps credential types to OIDC scopes

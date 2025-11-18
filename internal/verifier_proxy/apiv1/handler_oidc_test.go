@@ -2,7 +2,7 @@ package apiv1
 
 import (
 	"testing"
-	"vc/pkg/oauth2"
+	"vc/internal/verifier_proxy/apiv1/utils"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -63,7 +63,7 @@ func TestPKCE_S256_Validation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := oauth2.ValidatePKCE(tt.verifier, tt.challenge, tt.method)
+			err := utils.ValidatePKCE(tt.verifier, tt.challenge, tt.method)
 			if tt.expectError {
 				assert.Error(t, err)
 				if tt.errorContains != "" && err != nil {
@@ -410,7 +410,7 @@ func BenchmarkPKCE_S256_Validation(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = oauth2.ValidatePKCE(verifier, challenge, method)
+		_ = utils.ValidatePKCE(verifier, challenge, method)
 	}
 }
 
@@ -421,6 +421,6 @@ func BenchmarkPKCE_Plain_Validation(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = oauth2.ValidatePKCE(verifier, challenge, method)
+		_ = utils.ValidatePKCE(verifier, challenge, method)
 	}
 }

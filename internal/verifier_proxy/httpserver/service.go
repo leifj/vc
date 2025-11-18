@@ -6,6 +6,7 @@ import (
 	"text/template"
 	"time"
 	"vc/internal/verifier_proxy/apiv1"
+	"vc/internal/verifier_proxy/middleware"
 	"vc/pkg/httphelpers"
 	"vc/pkg/logger"
 	"vc/pkg/model"
@@ -18,17 +19,23 @@ import (
 
 // Service is the service object for httpserver
 type Service struct {
-	cfg         *model.Cfg
-	log         *logger.Log
-	server      *http.Server
-	apiv1       *apiv1.Client
-	gin         *gin.Engine
-	tracer      *trace.Tracer
-	httpHelpers *httphelpers.Client
+	cfg              *model.Cfg
+	log              *logger.Log
+	server           *http.Server
+	apiv1            *apiv1.Client
+	gin              *gin.Engine
+	tracer           *trace.Tracer
+	httpHelpers      *httphelpers.Client
+	tokenLimiter     *middleware.RateLimiter
+	authorizeLimiter *middleware.RateLimiter
+	registerLimiter  *middleware.RateLimiter
 }
 
 // New creates a new httpserver service
 func New(ctx context.Context, cfg *model.Cfg, apiv1 *apiv1.Client, tracer *trace.Tracer, log *logger.Log) (*Service, error) {
+	// Initialize rate limiters with default configuration
+	rateLimitConfig := middleware.DefaultRateLimitConfig()
+
 	s := &Service{
 		cfg:    cfg,
 		log:    log.New("httpserver"),
@@ -38,6 +45,9 @@ func New(ctx context.Context, cfg *model.Cfg, apiv1 *apiv1.Client, tracer *trace
 		server: &http.Server{
 			ReadHeaderTimeout: 3 * time.Second,
 		},
+		tokenLimiter:     middleware.NewRateLimiter(rateLimitConfig.TokenRequestsPerMinute, rateLimitConfig.TokenBurst),
+		authorizeLimiter: middleware.NewRateLimiter(rateLimitConfig.AuthorizeRequestsPerMinute, rateLimitConfig.AuthorizeBurst),
+		registerLimiter:  middleware.NewRateLimiter(rateLimitConfig.RegisterRequestsPerMinute, rateLimitConfig.RegisterBurst),
 	}
 
 	var err error
@@ -81,10 +91,17 @@ func New(ctx context.Context, cfg *model.Cfg, apiv1 *apiv1.Client, tracer *trace
 	// JWKS
 	s.httpHelpers.Server.RegEndpoint(ctx, rgRoot, http.MethodGet, "jwks", http.StatusOK, s.endpointJWKS)
 
-	// OIDC Endpoints
-	s.httpHelpers.Server.RegEndpoint(ctx, rgRoot, http.MethodGet, "authorize", http.StatusOK, s.endpointAuthorize)
-	s.httpHelpers.Server.RegEndpoint(ctx, rgRoot, http.MethodPost, "token", http.StatusOK, s.endpointToken)
+	// OIDC Endpoints with rate limiting
+	// These endpoints use manual registration to apply rate limiting middleware
+	s.setupOIDCRateLimitedEndpoints(ctx, rgRoot)
+
 	s.httpHelpers.Server.RegEndpoint(ctx, rgRoot, http.MethodGet, "userinfo", http.StatusOK, s.endpointUserInfo)
+
+	// Dynamic Client Registration (RFC 7591, 7592)
+	// POST /register is rate-limited and handled by setupOIDCRateLimitedEndpoints
+	s.httpHelpers.Server.RegEndpoint(ctx, rgRoot, http.MethodGet, "register/:client_id", http.StatusOK, s.endpointGetClientConfiguration)
+	s.httpHelpers.Server.RegEndpoint(ctx, rgRoot, http.MethodPut, "register/:client_id", http.StatusOK, s.endpointUpdateClient)
+	s.httpHelpers.Server.RegEndpoint(ctx, rgRoot, http.MethodDelete, "register/:client_id", http.StatusNoContent, s.endpointDeleteClient)
 
 	// OpenID4VP Endpoints
 	rgVerification := rgRoot.Group("/verification")

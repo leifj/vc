@@ -7,10 +7,10 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
-	"net/url"
 	"strings"
 	"time"
 
+	"vc/internal/verifier_proxy/apiv1/utils"
 	"vc/internal/verifier_proxy/db"
 
 	"golang.org/x/crypto/bcrypt"
@@ -180,8 +180,8 @@ func (c *Client) RegisterClient(ctx context.Context, req *ClientRegistrationRequ
 		RequestURIs:                 req.RequestURIs,
 		CodeChallengeMethod:         req.CodeChallengeMethod,
 		RegistrationAccessTokenHash: ratHash,
-		ClientIDIssuedAt:            now,
-		ClientSecretExpiresAt:       time.Time{}, // Never expires
+		ClientIDIssuedAt:            now.Unix(),
+		ClientSecretExpiresAt:       0, // Never expires (0 means no expiration per RFC 7591)
 	}
 
 	err = c.db.Clients.Create(ctx, client)
@@ -251,8 +251,8 @@ func (c *Client) GetClientInformation(ctx context.Context, clientID string, regi
 	response := &ClientInformationResponse{
 		ClientRegistrationResponse: ClientRegistrationResponse{
 			ClientID:                clientID,
-			ClientIDIssuedAt:        client.ClientIDIssuedAt.Unix(),
-			ClientSecretExpiresAt:   0,
+			ClientIDIssuedAt:        client.ClientIDIssuedAt,
+			ClientSecretExpiresAt:   client.ClientSecretExpiresAt,
 			RedirectURIs:            client.RedirectURIs,
 			TokenEndpointAuthMethod: client.TokenEndpointAuthMethod,
 			GrantTypes:              client.GrantTypes,
@@ -369,8 +369,8 @@ func (c *Client) UpdateClient(ctx context.Context, clientID string, registration
 
 	response := &ClientRegistrationResponse{
 		ClientID:                clientID,
-		ClientIDIssuedAt:        client.ClientIDIssuedAt.Unix(),
-		ClientSecretExpiresAt:   0,
+		ClientIDIssuedAt:        client.ClientIDIssuedAt,
+		ClientSecretExpiresAt:   client.ClientSecretExpiresAt,
 		RedirectURIs:            client.RedirectURIs,
 		TokenEndpointAuthMethod: client.TokenEndpointAuthMethod,
 		GrantTypes:              client.GrantTypes,
@@ -435,7 +435,7 @@ func (c *Client) validateRegistrationRequest(req *ClientRegistrationRequest) err
 	}
 
 	for _, uri := range req.RedirectURIs {
-		if err := validateRedirectURI(uri); err != nil {
+		if err := utils.ValidateRedirectURIFormat(uri); err != nil {
 			return fmt.Errorf("%w: invalid redirect_uri: %v", ErrInvalidRequest, err)
 		}
 	}
@@ -500,28 +500,28 @@ func (c *Client) validateRegistrationRequest(req *ClientRegistrationRequest) err
 
 	// Validate logo_uri (RFC 7591 Section 2)
 	if req.LogoURI != "" {
-		if err := validateLogoURI(req.LogoURI); err != nil {
+		if err := utils.ValidateHTTPSURI(req.LogoURI, "logo_uri"); err != nil {
 			return fmt.Errorf("%w: invalid logo_uri: %v", ErrInvalidRequest, err)
 		}
 	}
 
 	// Validate client_uri
 	if req.ClientURI != "" {
-		if err := validateClientMetadataURI(req.ClientURI, "client_uri"); err != nil {
+		if err := utils.ValidateHTTPSURI(req.ClientURI, "client_uri"); err != nil {
 			return fmt.Errorf("%w: %v", ErrInvalidRequest, err)
 		}
 	}
 
 	// Validate policy_uri
 	if req.PolicyURI != "" {
-		if err := validateClientMetadataURI(req.PolicyURI, "policy_uri"); err != nil {
+		if err := utils.ValidateHTTPSURI(req.PolicyURI, "policy_uri"); err != nil {
 			return fmt.Errorf("%w: %v", ErrInvalidRequest, err)
 		}
 	}
 
 	// Validate tos_uri
 	if req.TosURI != "" {
-		if err := validateClientMetadataURI(req.TosURI, "tos_uri"); err != nil {
+		if err := utils.ValidateHTTPSURI(req.TosURI, "tos_uri"); err != nil {
 			return fmt.Errorf("%w: %v", ErrInvalidRequest, err)
 		}
 	}
@@ -607,74 +607,5 @@ func verifyRegistrationAccessToken(token, hash string) error {
 	if computedHashHex != hash {
 		return ErrInvalidToken
 	}
-	return nil
-}
-
-func validateRedirectURI(uri string) error {
-	parsed, err := url.Parse(uri)
-	if err != nil {
-		return err
-	}
-
-	if parsed.Scheme == "" {
-		return fmt.Errorf("redirect_uri must have a scheme")
-	}
-
-	if parsed.Fragment != "" {
-		return fmt.Errorf("redirect_uri must not contain a fragment")
-	}
-
-	return nil
-}
-
-// validateLogoURI validates logo_uri per RFC 7591 Section 2
-// logo_uri must be a valid HTTPS URL without a fragment
-func validateLogoURI(uri string) error {
-	parsed, err := url.Parse(uri)
-	if err != nil {
-		return fmt.Errorf("invalid URL: %w", err)
-	}
-
-	// logo_uri must use https scheme (RFC 7591 Section 2)
-	if parsed.Scheme != "https" {
-		return fmt.Errorf("logo_uri must use https scheme")
-	}
-
-	// Must not contain fragment
-	if parsed.Fragment != "" {
-		return fmt.Errorf("logo_uri must not contain a fragment")
-	}
-
-	// Must have a host
-	if parsed.Host == "" {
-		return fmt.Errorf("logo_uri must have a host")
-	}
-
-	return nil
-}
-
-// validateClientMetadataURI validates client metadata URIs (client_uri, policy_uri, tos_uri)
-// These must be valid HTTPS URLs without fragments per RFC 7591 Section 2
-func validateClientMetadataURI(uri, fieldName string) error {
-	parsed, err := url.Parse(uri)
-	if err != nil {
-		return fmt.Errorf("invalid %s URL: %w", fieldName, err)
-	}
-
-	// Client metadata URIs must use https scheme (RFC 7591 Section 2)
-	if parsed.Scheme != "https" {
-		return fmt.Errorf("%s must use https scheme", fieldName)
-	}
-
-	// Must not contain fragment
-	if parsed.Fragment != "" {
-		return fmt.Errorf("%s must not contain a fragment", fieldName)
-	}
-
-	// Must have a host
-	if parsed.Host == "" {
-		return fmt.Errorf("%s must have a host", fieldName)
-	}
-
 	return nil
 }

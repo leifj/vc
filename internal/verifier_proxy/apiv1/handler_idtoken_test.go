@@ -35,9 +35,11 @@ func TestGenerateIDToken(t *testing.T) {
 		VerifierProxy: model.VerifierProxy{
 			ExternalURL: "https://verifier.example.com",
 			OIDC: model.OIDCConfig{
-				Issuer:      "https://verifier.example.com",
-				SubjectType: "public",
-				SubjectSalt: "test-salt-12345",
+				Issuer:          "https://verifier.example.com",
+				SigningAlg:      "RS256",
+				IDTokenDuration: 3600, // 1 hour
+				SubjectType:     "public",
+				SubjectSalt:     "test-salt-12345",
 			},
 		},
 	}
@@ -122,9 +124,11 @@ func TestGenerateIDToken_PairwiseSubject(t *testing.T) {
 		VerifierProxy: model.VerifierProxy{
 			ExternalURL: "https://verifier.example.com",
 			OIDC: model.OIDCConfig{
-				Issuer:      "https://verifier.example.com",
-				SubjectType: "pairwise",
-				SubjectSalt: "test-salt-pairwise",
+				Issuer:          "https://verifier.example.com",
+				SigningAlg:      "RS256",
+				IDTokenDuration: 3600,
+				SubjectType:     "pairwise",
+				SubjectSalt:     "test-salt-pairwise",
 			},
 		},
 	}
@@ -184,9 +188,11 @@ func TestGenerateIDToken_EmptyVerifiedClaims(t *testing.T) {
 	cfg := &model.Cfg{
 		VerifierProxy: model.VerifierProxy{
 			OIDC: model.OIDCConfig{
-				Issuer:      "https://example.com",
-				SubjectType: "public",
-				SubjectSalt: "salt",
+				Issuer:          "https://example.com",
+				SigningAlg:      "RS256",
+				IDTokenDuration: 3600,
+				SubjectType:     "public",
+				SubjectSalt:     "salt",
 			},
 		},
 	}
@@ -243,9 +249,11 @@ func TestGenerateIDToken_ComplexClaims(t *testing.T) {
 	cfg := &model.Cfg{
 		VerifierProxy: model.VerifierProxy{
 			OIDC: model.OIDCConfig{
-				Issuer:      "https://example.com",
-				SubjectType: "public",
-				SubjectSalt: "salt",
+				Issuer:          "https://example.com",
+				SigningAlg:      "RS256",
+				IDTokenDuration: 3600,
+				SubjectType:     "public",
+				SubjectSalt:     "salt",
 			},
 		},
 	}
@@ -314,9 +322,11 @@ func BenchmarkGenerateIDToken(b *testing.B) {
 	cfg := &model.Cfg{
 		VerifierProxy: model.VerifierProxy{
 			OIDC: model.OIDCConfig{
-				Issuer:      "https://example.com",
-				SubjectType: "public",
-				SubjectSalt: "salt",
+				Issuer:          "https://example.com",
+				SigningAlg:      "RS256",
+				IDTokenDuration: 3600,
+				SubjectType:     "public",
+				SubjectSalt:     "salt",
 			},
 		},
 	}
@@ -342,4 +352,183 @@ func BenchmarkGenerateIDToken(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_, _ = client.generateIDToken(session, testClient)
 	}
+}
+
+// TestConfigurableTokenExpiration tests that ID token expiration is configurable
+func TestConfigurableTokenExpiration(t *testing.T) {
+	ctx := context.Background()
+
+	privateKey, err := generateTestRSAKey()
+	assert.NoError(t, err)
+
+	tests := []struct {
+		name            string
+		idTokenDuration int // in seconds
+		expectedTTL     time.Duration
+	}{
+		{
+			name:            "1 hour expiration",
+			idTokenDuration: 3600,
+			expectedTTL:     time.Hour,
+		},
+		{
+			name:            "30 minute expiration",
+			idTokenDuration: 1800,
+			expectedTTL:     30 * time.Minute,
+		},
+		{
+			name:            "5 minute expiration",
+			idTokenDuration: 300,
+			expectedTTL:     5 * time.Minute,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &model.Cfg{
+				VerifierProxy: model.VerifierProxy{
+					OIDC: model.OIDCConfig{
+						Issuer:          "https://verifier.example.com",
+						IDTokenDuration: tt.idTokenDuration,
+						SubjectType:     "public",
+						SubjectSalt:     "test-salt",
+					},
+				},
+			}
+
+			log := logger.NewSimple("test")
+			tracer, _ := trace.NewForTesting(ctx, "test", log)
+			client, _ := New(ctx, nil, cfg, tracer, log)
+			client.oidcSigningKey = privateKey
+
+			session := &db.Session{
+				OIDCRequest:    db.OIDCRequest{Nonce: "nonce"},
+				OpenID4VP:      db.OpenID4VPSession{WalletID: "wallet"},
+				VerifiedClaims: map[string]any{},
+			}
+			testClient := &db.Client{ClientID: "client"}
+
+			before := time.Now()
+			tokenString, err := client.generateIDToken(session, testClient)
+			assert.NoError(t, err)
+
+			// Parse token to check expiration
+			token, _ := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+				return &privateKey.PublicKey, nil
+			})
+
+			claims := token.Claims.(jwt.MapClaims)
+			exp := int64(claims["exp"].(float64))
+			iat := int64(claims["iat"].(float64))
+
+			actualTTL := time.Duration(exp-iat) * time.Second
+			assert.Equal(t, tt.expectedTTL, actualTTL, "Token expiration should match configured duration")
+
+			// Verify expiration is in the future
+			expirationTime := time.Unix(exp, 0)
+			assert.True(t, expirationTime.After(before), "Token should not be expired")
+		})
+	}
+}
+
+// TestConfigurableSigningAlgorithm tests that signing algorithm is configurable
+func TestConfigurableSigningAlgorithm(t *testing.T) {
+	ctx := context.Background()
+
+	privateKey, err := generateTestRSAKey()
+	assert.NoError(t, err)
+
+	tests := []struct {
+		name            string
+		signingAlg      string
+		expectedMethod  jwt.SigningMethod
+		expectedAlgName string
+	}{
+		{
+			name:            "RS256 algorithm",
+			signingAlg:      "RS256",
+			expectedMethod:  jwt.SigningMethodRS256,
+			expectedAlgName: "RS256",
+		},
+		{
+			name:            "RS384 algorithm",
+			signingAlg:      "RS384",
+			expectedMethod:  jwt.SigningMethodRS384,
+			expectedAlgName: "RS384",
+		},
+		{
+			name:            "RS512 algorithm",
+			signingAlg:      "RS512",
+			expectedMethod:  jwt.SigningMethodRS512,
+			expectedAlgName: "RS512",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &model.Cfg{
+				VerifierProxy: model.VerifierProxy{
+					OIDC: model.OIDCConfig{
+						Issuer:          "https://verifier.example.com",
+						SigningAlg:      tt.signingAlg,
+						IDTokenDuration: 3600,
+						SubjectType:     "public",
+						SubjectSalt:     "test-salt",
+					},
+				},
+			}
+
+			log := logger.NewSimple("test")
+			tracer, _ := trace.NewForTesting(ctx, "test", log)
+			client, _ := New(ctx, nil, cfg, tracer, log)
+			client.oidcSigningKey = privateKey
+
+			// Test getSigningMethod returns correct algorithm
+			signingMethod := client.getSigningMethod()
+			assert.Equal(t, tt.expectedMethod, signingMethod, "Signing method should match configured algorithm")
+
+			// Generate token and verify algorithm in header
+			session := &db.Session{
+				OIDCRequest:    db.OIDCRequest{Nonce: "nonce"},
+				OpenID4VP:      db.OpenID4VPSession{WalletID: "wallet"},
+				VerifiedClaims: map[string]any{},
+			}
+			testClient := &db.Client{ClientID: "client"}
+
+			tokenString, err := client.generateIDToken(session, testClient)
+			assert.NoError(t, err)
+
+			// Parse token to check algorithm in header
+			token, _ := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+				return &privateKey.PublicKey, nil
+			})
+
+			assert.Equal(t, tt.expectedAlgName, token.Header["alg"], "Token header should contain correct algorithm")
+		})
+	}
+}
+
+// TestGetSigningMethod_UnknownAlgorithm tests fallback to RS256 for unknown algorithms
+func TestGetSigningMethod_UnknownAlgorithm(t *testing.T) {
+	ctx := context.Background()
+
+	cfg := &model.Cfg{
+		VerifierProxy: model.VerifierProxy{
+			OIDC: model.OIDCConfig{
+				Issuer:          "https://verifier.example.com",
+				SigningAlg:      "UNKNOWN_ALG",
+				IDTokenDuration: 3600,
+				SubjectType:     "public",
+				SubjectSalt:     "test-salt",
+			},
+		},
+	}
+
+	log := logger.NewSimple("test")
+	tracer, _ := trace.NewForTesting(ctx, "test", log)
+	client, _ := New(ctx, nil, cfg, tracer, log)
+
+	// Should default to RS256 for unknown algorithm
+	signingMethod := client.getSigningMethod()
+	assert.Equal(t, jwt.SigningMethodRS256, signingMethod, "Unknown algorithm should default to RS256")
 }

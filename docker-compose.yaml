@@ -90,6 +90,7 @@ services:
       - ./developer_tools/pki/:/pki:ro
       - ./developer_tools/private_rsa.pem:/private_rsa.pem:ro
       - ./internal/verifier_proxy/httpserver/static:/static:ro
+      - ./presentation_requests:/presentation_requests:ro
     depends_on:
       mongo:
         condition: service_healthy

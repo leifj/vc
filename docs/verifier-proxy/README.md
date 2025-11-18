@@ -8,6 +8,15 @@ This service acts as a protocol translator, presenting:
 - **Standard OIDC interface** to Relying Parties (authorization endpoint, token endpoint, userinfo endpoint)
 - **OpenID4VP interface** to EU Digital Identity Wallets (presentation request, direct post)
 
+### Important: Terminology Clarification
+
+The term "issuer" has different meanings in this system:
+
+- **OIDC Issuer**: The verifier-proxy acts as an OIDC Provider that **issues ID tokens and access tokens** to relying parties. The OIDC `issuer` field identifies the verifier-proxy itself.
+- **VC Issuer**: A separate service (see `cmd/issuer/`) that **issues verifiable credentials** to wallets. The verifier-proxy does NOT issue credentials; it only verifies them.
+
+The verifier-proxy verifies credentials that were previously issued by VC issuers and stored in user wallets.
+
 ## Use Cases
 
 - **Enable wallet authentication in existing IAM platforms** (Keycloak, Aut0, Okta, etc.)
@@ -21,14 +30,55 @@ This service acts as a protocol translator, presenting:
 ┌──────────────┐         ┌──────────────────┐         ┌──────────────┐
 │              │  OIDC   │                  │ OpenID4VP│              │
 │   Keycloak   │◄───────►│ Verifier Proxy   │◄────────►│  EUDI Wallet │
-│     (RP)     │         │                  │         │              │
+│     (RP)     │         │  (OIDC Provider) │         │  (Has VCs)   │
 └──────────────┘         └──────────────────┘         └──────────────┘
-                                   │
-                                   ▼
-                             ┌──────────┐
-                             │ MongoDB  │
-                             └──────────┘
+                                   │                          ▲
+                                   ▼                          │
+                             ┌──────────┐                     │
+                             │ MongoDB  │                     │
+                             └──────────┘                     │
+                                                              │
+                         ┌────────────────────────────────────┘
+                         │ (VCs issued previously via OpenID4VCI)
+                         │
+                         ▼
+                   ┌──────────────┐
+                   │  VC Issuer   │
+                   │  (Separate   │
+                   │   Service)   │
+                   └──────────────┘
 ```
+
+**Flow:**
+1. Wallet obtains verifiable credentials from VC Issuer (OpenID4VCI) - happens before authentication
+2. User initiates login at Relying Party (Keycloak)
+3. RP redirects to Verifier Proxy (OIDC authorization flow)
+4. Verifier Proxy requests presentation from Wallet (OpenID4VP)
+5. Wallet presents credentials to Verifier Proxy
+6. Verifier Proxy verifies credentials and issues ID token to RP
+7. RP trusts the ID token from Verifier Proxy (standard OIDC)
+
+## Understanding the Dual Role
+
+### What the Verifier-Proxy IS:
+- ✅ **OIDC Provider (OP)** - Issues ID tokens and access tokens to relying parties
+- ✅ **OpenID4VP Verifier** - Requests and verifies presentations from wallets
+- ✅ **Protocol Bridge** - Translates between OIDC and OpenID4VP
+
+### What the Verifier-Proxy is NOT:
+- ❌ **Verifiable Credential Issuer** - Does NOT create or issue VCs to wallets
+- ❌ **Wallet** - Does NOT store credentials
+- ❌ **Credential Registry** - Does NOT maintain credential databases
+
+### Token Types Explained:
+
+| Token Type | Issued By | Format | Contains | Audience |
+|------------|-----------|--------|----------|----------|
+| **ID Token** | Verifier-Proxy | JWT | User claims from verified credentials | Relying Party |
+| **Access Token** | Verifier-Proxy | JWT/opaque | Authorization scopes | Resource Server |
+| **Verifiable Credential** | VC Issuer (separate service) | JWT/JSON-LD | Credential claims + proof | Anyone who verifies |
+
+The verifier-proxy consumes verifiable credentials from wallets and produces OIDC tokens for relying parties.
 
 ## Features
 
@@ -95,6 +145,9 @@ verifier_proxy:
   external_url: "http://localhost:8080"
   
   oidc:
+    # OIDC Provider identifier - identifies this verifier-proxy service
+    # This is NOT related to verifiable credential issuance
+    # Must match the 'iss' claim in ID tokens issued to relying parties
     issuer: "http://localhost:8080"
     signing_key_path: "/path/to/oidc_signing_key.pem"
     signing_alg: "RS256"

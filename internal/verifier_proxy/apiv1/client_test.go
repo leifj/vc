@@ -2,6 +2,7 @@ package apiv1
 
 import (
 	"testing"
+	"vc/internal/verifier_proxy/apiv1/utils"
 	"vc/internal/verifier_proxy/db"
 	"vc/pkg/logger"
 	"vc/pkg/model"
@@ -188,8 +189,6 @@ func TestGenerateSubjectIdentifier_DifferentSalts(t *testing.T) {
 
 // TestValidateRedirectURI tests redirect URI validation
 func TestValidateRedirectURI(t *testing.T) {
-	client := createTestClient(t)
-
 	allowedURIs := []string{
 		"https://example.com/callback",
 		"https://app.example.com/auth",
@@ -212,7 +211,7 @@ func TestValidateRedirectURI(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := client.validateRedirectURI(tt.uri, allowedURIs)
+			result := utils.ValidateRedirectURI(tt.uri, allowedURIs)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
@@ -220,8 +219,6 @@ func TestValidateRedirectURI(t *testing.T) {
 
 // TestValidateScopes tests scope validation
 func TestValidateScopes(t *testing.T) {
-	client := createTestClient(t)
-
 	allowedScopes := []string{"openid", "profile", "email", "pid"}
 
 	tests := []struct {
@@ -240,7 +237,7 @@ func TestValidateScopes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := client.validateScopes(tt.requested, allowedScopes)
+			result := utils.ValidateScopes(tt.requested, allowedScopes)
 			assert.Equal(t, tt.expected, result)
 		})
 	}

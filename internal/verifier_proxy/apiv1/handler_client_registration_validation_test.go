@@ -2,6 +2,7 @@ package apiv1
 
 import (
 	"testing"
+	"vc/internal/verifier_proxy/apiv1/utils"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -44,7 +45,7 @@ func TestValidateLogoURI(t *testing.T) {
 			name:    "invalid url",
 			uri:     "://invalid",
 			wantErr: true,
-			errMsg:  "invalid URL",
+			errMsg:  "invalid logo_uri URL",
 		},
 		{
 			name:    "missing host",
@@ -68,7 +69,7 @@ func TestValidateLogoURI(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateLogoURI(tt.uri)
+			err := utils.ValidateHTTPSURI(tt.uri, "logo_uri")
 			if tt.wantErr {
 				assert.Error(t, err)
 				if tt.errMsg != "" {
@@ -146,7 +147,7 @@ func TestValidateClientMetadataURI(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateClientMetadataURI(tt.uri, tt.fieldName)
+			err := utils.ValidateHTTPSURI(tt.uri, tt.fieldName)
 			if tt.wantErr {
 				assert.Error(t, err)
 				if tt.errMsg != "" {

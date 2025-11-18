@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"vc/internal/verifier_proxy/apiv1/utils"
 	"vc/internal/verifier_proxy/db"
-	"vc/pkg/oauth2"
 
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
@@ -59,7 +59,7 @@ func (c *Client) Authorize(ctx context.Context, req *AuthorizeRequest) (*Authori
 	}
 
 	// Validate redirect URI
-	if !c.validateRedirectURI(req.RedirectURI, client.RedirectURIs) {
+	if !utils.ValidateRedirectURI(req.RedirectURI, client.RedirectURIs) {
 		c.log.Info("Invalid redirect URI", "redirect_uri", req.RedirectURI)
 		return nil, ErrInvalidRequest
 	}
@@ -72,7 +72,7 @@ func (c *Client) Authorize(ctx context.Context, req *AuthorizeRequest) (*Authori
 
 	// Validate scope
 	requestedScopes := strings.Split(req.Scope, " ")
-	if !c.validateScopes(requestedScopes, client.AllowedScopes) {
+	if !utils.ValidateScopes(requestedScopes, client.AllowedScopes) {
 		c.log.Info("Invalid scope requested")
 		return nil, ErrInvalidScope
 	}
@@ -231,7 +231,7 @@ func (c *Client) handleAuthorizationCodeGrant(ctx context.Context, req *TokenReq
 
 	// Validate PKCE if present
 	if session.OIDCRequest.CodeChallenge != "" {
-		if err := oauth2.ValidatePKCE(req.CodeVerifier, session.OIDCRequest.CodeChallenge, session.OIDCRequest.CodeChallengeMethod); err != nil {
+		if err := utils.ValidatePKCE(req.CodeVerifier, session.OIDCRequest.CodeChallenge, session.OIDCRequest.CodeChallengeMethod); err != nil {
 			c.log.Info("PKCE validation failed")
 			return nil, ErrInvalidGrant
 		}
@@ -295,11 +295,14 @@ func (c *Client) generateIDToken(session *db.Session, client *db.Client) (string
 	walletID := session.OpenID4VP.WalletID
 	sub := c.generateSubjectIdentifier(walletID, client.ClientID)
 
+	// Get token expiration from config
+	idTokenTTL := time.Duration(c.cfg.VerifierProxy.OIDC.IDTokenDuration) * time.Second
+
 	claims := jwt.MapClaims{
 		"iss":   c.cfg.VerifierProxy.OIDC.Issuer,
 		"sub":   sub,
 		"aud":   client.ClientID,
-		"exp":   now.Add(1 * time.Hour).Unix(), // TODO: configurable
+		"exp":   now.Add(idTokenTTL).Unix(),
 		"iat":   now.Unix(),
 		"nonce": session.OIDCRequest.Nonce,
 	}
@@ -309,7 +312,9 @@ func (c *Client) generateIDToken(session *db.Session, client *db.Client) (string
 		claims[k] = v
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims) // TODO: configurable algorithm
+	// Get signing method from config
+	signingMethod := c.getSigningMethod()
+	token := jwt.NewWithClaims(signingMethod, claims)
 
 	// Sign token
 	tokenString, err := token.SignedString(c.oidcSigningKey)
@@ -321,24 +326,6 @@ func (c *Client) generateIDToken(session *db.Session, client *db.Client) (string
 }
 
 // Helper functions
-
-func (c *Client) validateRedirectURI(uri string, allowed []string) bool {
-	for _, allowedURI := range allowed {
-		if uri == allowedURI {
-			return true
-		}
-	}
-	return false
-}
-
-func (c *Client) validateScopes(requested []string, allowed []string) bool {
-	for _, scope := range requested {
-		if !c.contains(allowed, scope) {
-			return false
-		}
-	}
-	return true
-}
 
 func (c *Client) contains(slice []string, item string) bool {
 	for _, s := range slice {

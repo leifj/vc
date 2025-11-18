@@ -2,7 +2,12 @@
 
 ## Overview
 
-This document describes the automated testing strategy for the verifier-proxy OIDC Provider implementation using the [OpenID Connect Conformance Suite](https://openid.net/certification/testing/).
+This document describes the automated testing strategy for the verifier-proxy **OIDC Provider** implementation using the [OpenID Connect Conformance Suite](https://openid.net/certification/testing/).
+
+**Important:** This tests the verifier-proxy's role as an **OIDC Provider** (issuing ID tokens to relying parties), not its credential verification capabilities. The verifier-proxy:
+- ✅ Acts as an OpenID Provider (tested here)
+- ✅ Verifies presentations from wallets (tested via integration tests)
+- ❌ Does NOT issue verifiable credentials (separate VC Issuer service)
 
 ## Architecture
 

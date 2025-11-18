@@ -1,7 +1,9 @@
 package apiv1
 
 import (
+	"context"
 	"testing"
+	"vc/pkg/configuration"
 	"vc/pkg/logger"
 	"vc/pkg/model"
 	"vc/pkg/openid4vp"
@@ -197,4 +199,80 @@ func BenchmarkGenerateNonce(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_ = client.generateNonce()
 	}
+}
+
+// TestCreatePresentationDefinition_WithTemplates tests template-based presentation definition
+func TestCreatePresentationDefinition_WithTemplates(t *testing.T) {
+	ctx := context.Background()
+
+	// Load test templates
+	templatesDir := "testdata/presentation_requests"
+	config, err := configuration.LoadPresentationRequests(ctx, templatesDir)
+	assert.NoError(t, err, "Should load test templates")
+
+	// Create test client with templates
+	cfg := createTestConfig()
+	log := logger.NewSimple("test")
+	client := &Client{
+		cfg:                 cfg,
+		log:                 log.New("apiv1"),
+		presentationBuilder: openid4vp.NewPresentationBuilder(config.GetEnabledTemplates()),
+	}
+
+	// Test with PID scope
+	scopes := []string{"openid", "pid"}
+	pd, err := client.createPresentationDefinition(scopes)
+	assert.NoError(t, err)
+	assert.NotNil(t, pd)
+
+	pdParam, ok := pd.(*openid4vp.PresentationDefinitionParameter)
+	assert.True(t, ok, "Should return PresentationDefinitionParameter")
+	assert.NotEmpty(t, pdParam.ID, "Should have an ID")
+	assert.NotEmpty(t, pdParam.InputDescriptors, "Should have input descriptors")
+
+	// Verify the descriptor was created from template
+	if len(pdParam.InputDescriptors) > 0 {
+		descriptor := pdParam.InputDescriptors[0]
+		assert.NotEmpty(t, descriptor.ID)
+		assert.NotEmpty(t, descriptor.Constraints.Fields)
+
+		// Check for VCT constraint
+		hasVCT := false
+		for _, field := range descriptor.Constraints.Fields {
+			if len(field.Path) > 0 && field.Path[0] == "$.vct" {
+				hasVCT = true
+				break
+			}
+		}
+		assert.True(t, hasVCT, "Should have VCT constraint")
+	}
+}
+
+// TestCreatePresentationDefinition_TemplatesFallback tests fallback to legacy when template fails
+func TestCreatePresentationDefinition_TemplatesFallback(t *testing.T) {
+	ctx := context.Background()
+
+	// Load test templates
+	templatesDir := "testdata/presentation_requests"
+	config, err := configuration.LoadPresentationRequests(ctx, templatesDir)
+	assert.NoError(t, err)
+
+	// Create client with templates
+	cfg := createTestConfig()
+	log := logger.NewSimple("test")
+	client := &Client{
+		cfg:                 cfg,
+		log:                 log.New("apiv1"),
+		presentationBuilder: openid4vp.NewPresentationBuilder(config.GetEnabledTemplates()),
+	}
+
+	// Test with scope not in templates (should fall back to legacy config)
+	scopes := []string{"openid", "ehic"}
+	pd, err := client.createPresentationDefinition(scopes)
+	assert.NoError(t, err)
+	assert.NotNil(t, pd)
+
+	pdParam, ok := pd.(*openid4vp.PresentationDefinitionParameter)
+	assert.True(t, ok)
+	assert.NotEmpty(t, pdParam.InputDescriptors, "Should have descriptors from legacy config")
 }

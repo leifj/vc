@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"vc/internal/verifier_proxy/apiv1/utils"
 	"vc/internal/verifier_proxy/db"
 	"vc/pkg/logger"
 	"vc/pkg/model"
@@ -144,14 +145,14 @@ func TestAuthorize_RequestValidation(t *testing.T) {
 			// we test the validation components
 
 			// Validate redirect URI
-			validRedirect := client.validateRedirectURI(tt.request.RedirectURI, testClient.RedirectURIs)
+			validRedirect := utils.ValidateRedirectURI(tt.request.RedirectURI, testClient.RedirectURIs)
 			if strings.Contains(tt.name, "Valid") {
 				assert.True(t, validRedirect, "Redirect URI should be valid")
 			}
 
 			// Validate scopes
 			requestedScopes := strings.Split(tt.request.Scope, " ")
-			validScopes := client.validateScopes(requestedScopes, testClient.AllowedScopes)
+			validScopes := utils.ValidateScopes(requestedScopes, testClient.AllowedScopes)
 			if strings.Contains(tt.name, "Valid") {
 				assert.True(t, validScopes, "Scopes should be valid")
 			}
@@ -209,7 +210,7 @@ func TestAuthorize_ClientValidation(t *testing.T) {
 
 // TestAuthorize_RedirectURIValidation tests redirect URI validation
 func TestAuthorize_RedirectURIValidation(t *testing.T) {
-	client, _, testClient := setupTestClientWithDB(t)
+	_, _, testClient := setupTestClientWithDB(t)
 
 	tests := []struct {
 		name     string
@@ -245,7 +246,7 @@ func TestAuthorize_RedirectURIValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := client.validateRedirectURI(tt.uri, testClient.RedirectURIs)
+			result := utils.ValidateRedirectURI(tt.uri, testClient.RedirectURIs)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
@@ -253,7 +254,7 @@ func TestAuthorize_RedirectURIValidation(t *testing.T) {
 
 // TestAuthorize_ScopeValidation tests scope validation
 func TestAuthorize_ScopeValidation(t *testing.T) {
-	client, _, testClient := setupTestClientWithDB(t)
+	_, _, testClient := setupTestClientWithDB(t)
 
 	tests := []struct {
 		name     string
@@ -290,7 +291,7 @@ func TestAuthorize_ScopeValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			requestedScopes := strings.Split(tt.scopes, " ")
-			result := client.validateScopes(requestedScopes, testClient.AllowedScopes)
+			result := utils.ValidateScopes(requestedScopes, testClient.AllowedScopes)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
@@ -443,8 +444,8 @@ func BenchmarkAuthorize_Validation(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = client.validateRedirectURI(uri, testClient.RedirectURIs)
-		_ = client.validateScopes(scopes, testClient.AllowedScopes)
+		_ = utils.ValidateRedirectURI(uri, testClient.RedirectURIs)
+		_ = utils.ValidateScopes(scopes, testClient.AllowedScopes)
 		_ = client.contains(testClient.ResponseTypes, "code")
 	}
 }

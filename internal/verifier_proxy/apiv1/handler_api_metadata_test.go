@@ -203,6 +203,10 @@ func TestGetJWKS(t *testing.T) {
 	client, err := New(ctx, nil, cfg, tracer, log)
 	assert.NoError(t, err)
 
+	// Set signing key for testing
+	privateKey, _ := generateTestRSAKey()
+	client.SetSigningKeyForTesting(privateKey, "RS256")
+
 	// Test getting JWKS
 	jwks, err := client.GetJWKS(ctx)
 	assert.NoError(t, err)

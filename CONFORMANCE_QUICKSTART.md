@@ -11,7 +11,11 @@ Then follow the on-screen instructions to run tests at <https://www.certificatio
 
 ## What This Does
 
-Automated setup for testing the verifier-proxy OIDC Provider implementation against the official OpenID Connect Conformance Suite.
+Automated setup for testing the verifier-proxy **OIDC Provider** implementation against the official OpenID Connect Conformance Suite.
+
+**Scope:** This tests the verifier-proxy's OIDC Provider capabilities (issuing ID tokens to relying parties). It does NOT test:
+- Verifiable credential issuance (separate VC Issuer service)
+- OpenID4VP presentation verification (covered by integration tests)
 
 **Architecture:**
 
