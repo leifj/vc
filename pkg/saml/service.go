@@ -117,16 +117,27 @@ type AuthRequest struct {
 }
 
 // InitiateAuth initiates a SAML authentication flow
-func (s *Service) InitiateAuth(ctx context.Context, idpEntityID, credentialType string) (*AuthRequest, error) {
+func (s *Service) InitiateAuth(ctx context.Context, idpEntityID, samlType string) (*AuthRequest, error) {
 	// Fetch IdP metadata via MDQ
 	idpMetadata, err := s.mdqClient.GetIDPMetadata(ctx, idpEntityID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get IdP metadata: %w", err)
 	}
 
-	// Validate credential type
-	if !s.mapper.IsValidCredentialType(credentialType) {
-		return nil, fmt.Errorf("unsupported credential type: %s", credentialType)
+	// Validate SAML type and get credential mapping
+	if !s.mapper.IsValidCredentialType(samlType) {
+		return nil, fmt.Errorf("unsupported SAML type: %s", samlType)
+	}
+
+	// Get credential type and config ID from mapper
+	credentialType, ok := s.mapper.GetCredentialType(samlType)
+	if !ok {
+		return nil, fmt.Errorf("no credential type mapping found for SAML type: %s", samlType)
+	}
+
+	credentialConfigID, ok := s.mapper.GetCredentialConfigID(samlType)
+	if !ok {
+		return nil, fmt.Errorf("no credential config ID mapping found for SAML type: %s", samlType)
 	}
 
 	// Create authentication request
@@ -141,10 +152,12 @@ func (s *Service) InitiateAuth(ctx context.Context, idpEntityID, credentialType 
 
 	// Store session
 	session := &SAMLSession{
-		ID:             req.ID,
-		CredentialType: credentialType,
-		IDPEntityID:    idpEntityID,
-		CreatedAt:      time.Now(),
+		ID:                 req.ID,
+		SAMLType:           samlType,
+		CredentialType:     credentialType,
+		CredentialConfigID: credentialConfigID,
+		IDPEntityID:        idpEntityID,
+		CreatedAt:          time.Now(),
 	}
 	s.sessionStore.Set(req.ID, session)
 
@@ -250,4 +263,41 @@ func (s *Service) Close(ctx context.Context) error {
 func (s *Service) Middleware() samlsp.RequestTracker {
 	// Placeholder - could implement custom request tracking if needed
 	return nil
+}
+
+// BuildTransformer creates a ClaimTransformer from the service's SAML configuration
+func (s *Service) BuildTransformer() (*ClaimTransformer, error) {
+	return BuildTransformer(s.cfg)
+}
+
+// BuildTransformer creates a ClaimTransformer from SAML configuration (package-level for testing)
+func BuildTransformer(cfg *model.SAMLConfig) (*ClaimTransformer, error) {
+	if cfg == nil || !cfg.Enabled {
+		return nil, fmt.Errorf("SAML not enabled")
+	}
+
+	mappings := make([]*CredentialMapping, 0, len(cfg.AttributeMappings))
+
+	for _, attrMapping := range cfg.AttributeMappings {
+		// Convert config attribute mappings to transformer format
+		attributes := make(map[string]*AttributeMapping)
+
+		for oid, attrCfg := range attrMapping.Attributes {
+			attributes[oid] = &AttributeMapping{
+				Claim:     attrCfg.Claim,
+				Required:  attrCfg.Required,
+				Transform: attrCfg.Transform,
+				Default:   attrCfg.Default,
+			}
+		}
+
+		mappings = append(mappings, &CredentialMapping{
+			SAMLType:           attrMapping.SAMLType,
+			CredentialType:     attrMapping.CredentialType,
+			CredentialConfigID: attrMapping.CredentialConfigID,
+			Attributes:         attributes,
+		})
+	}
+
+	return NewClaimTransformer(mappings), nil
 }

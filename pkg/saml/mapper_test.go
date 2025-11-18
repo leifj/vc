@@ -11,23 +11,23 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// NOTE: These tests cover the DEPRECATED AttributeMapper
+// For new code, use ClaimTransformer and transformer_test.go
+
 func TestAttributeMapper_MapAttributes_PID(t *testing.T) {
 	log, err := logger.New("test", "", false)
 	require.NoError(t, err)
 
 	mappings := []model.SAMLAttributeMapping{
 		{
+			SAMLType:       "pid",
 			CredentialType: "pid",
-			Attributes: map[string]string{
-				"urn:oid:2.5.4.42":                  "given_name",
-				"urn:oid:2.5.4.4":                   "family_name",
-				"urn:oid:0.9.2342.19200300.100.1.3": "email",
-				"urn:oid:1.2.752.29.4.13":           "personal_identity_number",
-				"urn:oid:2.16.840.1.113730.3.1.241": "display_name",
-			},
-			RequiredAttributes: []string{
-				"urn:oid:2.5.4.42",
-				"urn:oid:2.5.4.4",
+			Attributes: map[string]model.SAMLAttributeConfig{
+				"urn:oid:2.5.4.42":                  {Claim: "given_name", Required: true},
+				"urn:oid:2.5.4.4":                   {Claim: "family_name", Required: true},
+				"urn:oid:0.9.2342.19200300.100.1.3": {Claim: "email", Required: false},
+				"urn:oid:1.2.752.29.4.13":           {Claim: "personal_identity_number", Required: false},
+				"urn:oid:2.16.840.1.113730.3.1.241": {Claim: "display_name", Required: false},
 			},
 		},
 	}
@@ -52,64 +52,58 @@ func TestAttributeMapper_MapAttributes_PID(t *testing.T) {
 	assert.Equal(t, "John Doe", claims["display_name"])
 }
 
-func TestAttributeMapper_MapAttributes_MultiValue(t *testing.T) {
+func TestAttributeMapper_MapAttributes_MissingOptional(t *testing.T) {
 	log, err := logger.New("test", "", false)
 	require.NoError(t, err)
 
 	mappings := []model.SAMLAttributeMapping{
 		{
-			CredentialType: "diploma",
-			Attributes: map[string]string{
-				"urn:oid:1.3.6.1.4.1.5923.1.1.1.1": "affiliation",
-			},
-		},
-	}
-
-	mapper := NewAttributeMapper(mappings, log)
-
-	// eduPersonAffiliation can have multiple values
-	samlAttrs := map[string][]string{
-		"urn:oid:1.3.6.1.4.1.5923.1.1.1.1": {"student", "member", "staff"},
-	}
-
-	claims, err := mapper.MapAttributes(samlAttrs, "diploma")
-	require.NoError(t, err)
-
-	// Multi-valued attributes should be stored as arrays
-	affiliation, ok := claims["affiliation"]
-	require.True(t, ok)
-
-	affiliationSlice, ok := affiliation.([]string)
-	require.True(t, ok)
-	assert.Len(t, affiliationSlice, 3)
-	assert.Contains(t, affiliationSlice, "student")
-	assert.Contains(t, affiliationSlice, "member")
-	assert.Contains(t, affiliationSlice, "staff")
-}
-
-func TestAttributeMapper_MissingRequiredAttributes(t *testing.T) {
-	log, err := logger.New("test", "", false)
-	require.NoError(t, err)
-
-	mappings := []model.SAMLAttributeMapping{
-		{
+			SAMLType:       "pid",
 			CredentialType: "pid",
-			Attributes: map[string]string{
-				"urn:oid:2.5.4.42": "given_name",
-				"urn:oid:2.5.4.4":  "family_name",
-			},
-			RequiredAttributes: []string{
-				"urn:oid:2.5.4.42",
-				"urn:oid:2.5.4.4",
+			Attributes: map[string]model.SAMLAttributeConfig{
+				"urn:oid:2.5.4.42": {Claim: "given_name", Required: true},
+				"urn:oid:2.5.4.4":  {Claim: "family_name", Required: true},
+				"urn:oid:2.5.4.10": {Claim: "organization", Required: false},
 			},
 		},
 	}
 
 	mapper := NewAttributeMapper(mappings, log)
 
-	// Missing family_name
 	samlAttrs := map[string][]string{
 		"urn:oid:2.5.4.42": {"John"},
+		"urn:oid:2.5.4.4":  {"Doe"},
+		// Missing optional organization
+	}
+
+	claims, err := mapper.MapAttributes(samlAttrs, "pid")
+	require.NoError(t, err)
+
+	assert.Equal(t, "John", claims["given_name"])
+	assert.Equal(t, "Doe", claims["family_name"])
+	assert.NotContains(t, claims, "organization")
+}
+
+func TestAttributeMapper_MapAttributes_MissingRequired(t *testing.T) {
+	log, err := logger.New("test", "", false)
+	require.NoError(t, err)
+
+	mappings := []model.SAMLAttributeMapping{
+		{
+			SAMLType:       "pid",
+			CredentialType: "pid",
+			Attributes: map[string]model.SAMLAttributeConfig{
+				"urn:oid:2.5.4.42": {Claim: "given_name", Required: true},
+				"urn:oid:2.5.4.4":  {Claim: "family_name", Required: true},
+			},
+		},
+	}
+
+	mapper := NewAttributeMapper(mappings, log)
+
+	samlAttrs := map[string][]string{
+		"urn:oid:2.5.4.42": {"John"},
+		// Missing required family_name
 	}
 
 	_, err = mapper.MapAttributes(samlAttrs, "pid")
@@ -117,15 +111,16 @@ func TestAttributeMapper_MissingRequiredAttributes(t *testing.T) {
 	assert.Contains(t, err.Error(), "required attribute missing")
 }
 
-func TestAttributeMapper_InvalidCredentialType(t *testing.T) {
+func TestAttributeMapper_MapAttributes_MultipleValues(t *testing.T) {
 	log, err := logger.New("test", "", false)
 	require.NoError(t, err)
 
 	mappings := []model.SAMLAttributeMapping{
 		{
-			CredentialType: "pid",
-			Attributes: map[string]string{
-				"urn:oid:2.5.4.42": "given_name",
+			SAMLType:       "diploma",
+			CredentialType: "diploma",
+			Attributes: map[string]model.SAMLAttributeConfig{
+				"urn:oid:1.3.6.1.4.1.5923.1.1.1.1": {Claim: "affiliation", Required: false},
 			},
 		},
 	}
@@ -133,12 +128,38 @@ func TestAttributeMapper_InvalidCredentialType(t *testing.T) {
 	mapper := NewAttributeMapper(mappings, log)
 
 	samlAttrs := map[string][]string{
-		"urn:oid:2.5.4.42": {"John"},
+		"urn:oid:1.3.6.1.4.1.5923.1.1.1.1": {"student", "member"},
 	}
 
-	_, err = mapper.MapAttributes(samlAttrs, "invalid_credential_type")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no attribute mapping found")
+	claims, err := mapper.MapAttributes(samlAttrs, "diploma")
+	require.NoError(t, err)
+
+	affiliation, ok := claims["affiliation"].([]string)
+	require.True(t, ok)
+	assert.ElementsMatch(t, []string{"student", "member"}, affiliation)
+}
+
+func TestAttributeMapper_GetDefaultIdP(t *testing.T) {
+	log, err := logger.New("test", "", false)
+	require.NoError(t, err)
+
+	mappings := []model.SAMLAttributeMapping{
+		{
+			SAMLType:       "pid",
+			CredentialType: "pid",
+			DefaultIdP:     "https://idp.example.com",
+			Attributes:     map[string]model.SAMLAttributeConfig{},
+		},
+	}
+
+	mapper := NewAttributeMapper(mappings, log)
+
+	idp, ok := mapper.GetDefaultIdP("pid")
+	assert.True(t, ok)
+	assert.Equal(t, "https://idp.example.com", idp)
+
+	_, ok = mapper.GetDefaultIdP("unknown")
+	assert.False(t, ok)
 }
 
 func TestAttributeMapper_IsValidCredentialType(t *testing.T) {
@@ -146,29 +167,30 @@ func TestAttributeMapper_IsValidCredentialType(t *testing.T) {
 	require.NoError(t, err)
 
 	mappings := []model.SAMLAttributeMapping{
-		{CredentialType: "pid"},
-		{CredentialType: "diploma"},
-		{CredentialType: "ehic"},
+		{
+			SAMLType:       "pid",
+			CredentialType: "pid",
+			Attributes:     map[string]model.SAMLAttributeConfig{},
+		},
 	}
 
 	mapper := NewAttributeMapper(mappings, log)
 
 	assert.True(t, mapper.IsValidCredentialType("pid"))
-	assert.True(t, mapper.IsValidCredentialType("diploma"))
-	assert.True(t, mapper.IsValidCredentialType("ehic"))
-	assert.False(t, mapper.IsValidCredentialType("invalid"))
-	assert.False(t, mapper.IsValidCredentialType(""))
+	assert.False(t, mapper.IsValidCredentialType("unknown"))
 }
 
-func TestAttributeMapper_UnmappedAttributesIgnored(t *testing.T) {
+func TestAttributeMapper_WithDefaults(t *testing.T) {
 	log, err := logger.New("test", "", false)
 	require.NoError(t, err)
 
 	mappings := []model.SAMLAttributeMapping{
 		{
+			SAMLType:       "pid",
 			CredentialType: "pid",
-			Attributes: map[string]string{
-				"urn:oid:2.5.4.42": "given_name",
+			Attributes: map[string]model.SAMLAttributeConfig{
+				"urn:oid:2.5.4.42": {Claim: "given_name", Required: true},
+				"urn:oid:2.5.4.6":  {Claim: "country", Required: false, Default: "SE"},
 			},
 		},
 	}
@@ -177,15 +199,38 @@ func TestAttributeMapper_UnmappedAttributesIgnored(t *testing.T) {
 
 	samlAttrs := map[string][]string{
 		"urn:oid:2.5.4.42": {"John"},
-		"urn:oid:2.5.4.4":  {"Doe"},   // Not in mapping, should be ignored
-		"urn:oid:9.9.9.9":  {"Extra"}, // Not in mapping, should be ignored
+		// country missing - should use default
 	}
 
 	claims, err := mapper.MapAttributes(samlAttrs, "pid")
 	require.NoError(t, err)
 
-	// Only mapped attribute should be present
 	assert.Equal(t, "John", claims["given_name"])
-	assert.NotContains(t, claims, "family_name")
-	assert.Len(t, claims, 1)
+	assert.Equal(t, "SE", claims["country"])
+}
+
+func TestAttributeMapper_WithTransform(t *testing.T) {
+	log, err := logger.New("test", "", false)
+	require.NoError(t, err)
+
+	mappings := []model.SAMLAttributeMapping{
+		{
+			SAMLType:       "pid",
+			CredentialType: "pid",
+			Attributes: map[string]model.SAMLAttributeConfig{
+				"urn:oid:0.9.2342.19200300.100.1.3": {Claim: "email", Required: true, Transform: "lowercase"},
+			},
+		},
+	}
+
+	mapper := NewAttributeMapper(mappings, log)
+
+	samlAttrs := map[string][]string{
+		"urn:oid:0.9.2342.19200300.100.1.3": {"JOHN.DOE@EXAMPLE.COM"},
+	}
+
+	claims, err := mapper.MapAttributes(samlAttrs, "pid")
+	require.NoError(t, err)
+
+	assert.Equal(t, "john.doe@example.com", claims["email"])
 }

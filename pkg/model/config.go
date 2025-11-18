@@ -118,6 +118,80 @@ type JWTAttribute struct {
 	Kid string `yaml:"kid"`
 }
 
+// SAMLConfig holds SAML Service Provider configuration for the issuer
+type SAMLConfig struct {
+	// Enabled turns on SAML support (default: false)
+	Enabled bool `yaml:"enabled"`
+
+	// EntityID is the SAML SP entity identifier (typically the metadata URL)
+	EntityID string `yaml:"entity_id" validate:"required_if=Enabled true"`
+
+	// MetadataURL is the public URL where SP metadata is served (optional, auto-generated if empty)
+	MetadataURL string `yaml:"metadata_url,omitempty"`
+
+	// MDQServer is the base URL for MDQ (Metadata Query Protocol) server
+	// Example: "https://md.example.org/entities/" (must end with /)
+	MDQServer string `yaml:"mdq_server" validate:"required_if=Enabled true"`
+
+	// CertificatePath is the path to X.509 certificate for SAML signing/encryption
+	CertificatePath string `yaml:"certificate_path" validate:"required_if=Enabled true"`
+
+	// PrivateKeyPath is the path to private key for SAML signing/encryption
+	PrivateKeyPath string `yaml:"private_key_path" validate:"required_if=Enabled true"`
+
+	// ACSEndpoint is the Assertion Consumer Service URL where IdP sends SAML responses
+	// Example: "https://issuer.example.com/saml/acs"
+	ACSEndpoint string `yaml:"acs_endpoint" validate:"required_if=Enabled true"`
+
+	// SessionDuration in seconds (default: 3600)
+	SessionDuration int `yaml:"session_duration"`
+
+	// AttributeMappings defines how SAML attributes map to credential claims
+	AttributeMappings []SAMLAttributeMapping `yaml:"attribute_mappings" validate:"required_if=Enabled true"`
+
+	// MetadataCacheTTL in seconds (default: 3600) - how long to cache IdP metadata from MDQ
+	MetadataCacheTTL int `yaml:"metadata_cache_ttl"`
+}
+
+// SAMLAttributeMapping defines attribute-to-claim mapping for a specific credential type
+type SAMLAttributeMapping struct {
+	// SAMLType is the identifier used when requesting this credential type via SAML
+	// Example: "pid", "diploma", "ehic"
+	SAMLType string `yaml:"saml_type" validate:"required"`
+
+	// CredentialType identifies the key in credential_constructor config
+	// Example: "pid" maps to credential_constructor["pid"]
+	CredentialType string `yaml:"credential_type" validate:"required"`
+
+	// CredentialConfigID is the OpenID4VCI credential configuration identifier
+	// Example: "urn:eudi:pid:1"
+	CredentialConfigID string `yaml:"credential_config_id" validate:"required"`
+
+	// Attributes maps SAML attribute OIDs to claim paths with additional metadata
+	// Example: "urn:oid:2.5.4.42" -> {claim: "identity.given_name", required: true}
+	Attributes map[string]SAMLAttributeConfig `yaml:"attributes" validate:"required"`
+
+	// DefaultIdP is the optional default IdP entityID for this credential type
+	DefaultIdP string `yaml:"default_idp,omitempty"`
+}
+
+// SAMLAttributeConfig defines how a single SAML attribute maps to a credential claim
+type SAMLAttributeConfig struct {
+	// Claim is the target claim name (supports dot-notation for nesting)
+	// Example: "given_name" or "identity.given_name"
+	Claim string `yaml:"claim" validate:"required"`
+
+	// Required indicates if this attribute must be present in SAML assertion
+	Required bool `yaml:"required"`
+
+	// Transform is an optional transformation to apply
+	// Supported: "lowercase", "uppercase", "trim"
+	Transform string `yaml:"transform,omitempty" validate:"omitempty,oneof=lowercase uppercase trim"`
+
+	// Default is an optional default value if attribute is missing
+	Default string `yaml:"default,omitempty"`
+}
+
 // Issuer holds the issuer configuration
 type Issuer struct {
 	APIServer      APIServer    `yaml:"api_server" validate:"required"`
@@ -127,6 +201,7 @@ type Issuer struct {
 	JWTAttribute   JWTAttribute `yaml:"jwt_attribute" validate:"required"`
 	IssuerURL      string       `yaml:"issuer_url" validate:"required"`
 	WalletURL      string       `yaml:"wallet_url"`
+	SAML           SAMLConfig   `yaml:"saml,omitempty" validate:"omitempty"`
 }
 
 // Registry holds the registry configuration
@@ -166,8 +241,13 @@ type VerifierProxy struct {
 	OpenID4VP   OpenID4VPConfig `yaml:"openid4vp" validate:"required"`
 }
 
-// OIDCConfig holds OIDC-specific configuration
+// OIDCConfig holds OIDC-specific configuration for the verifier-proxy's role as an OpenID Provider.
+// This configures how the verifier-proxy issues ID tokens and access tokens to relying parties.
+// Note: This is NOT related to verifiable credential issuance (see IssuerConfig for VC issuance).
 type OIDCConfig struct {
+	// Issuer is the OIDC Provider identifier that appears in ID tokens and discovery metadata.
+	// This identifies the verifier-proxy itself as an OpenID Provider.
+	// Must match the 'iss' claim in all issued ID tokens.
 	Issuer               string `yaml:"issuer" validate:"required"`
 	SigningKeyPath       string `yaml:"signing_key_path" validate:"required"`
 	SigningAlg           string `yaml:"signing_alg" validate:"required,oneof=RS256 RS384 RS512 ES256 ES384 ES512"`
@@ -182,8 +262,9 @@ type OIDCConfig struct {
 
 // OpenID4VPConfig holds OpenID4VP-specific configuration
 type OpenID4VPConfig struct {
-	PresentationTimeout  int                         `yaml:"presentation_timeout" validate:"required"`
-	SupportedCredentials []SupportedCredentialConfig `yaml:"supported_credentials" validate:"required"`
+	PresentationTimeout     int                         `yaml:"presentation_timeout" validate:"required"`
+	SupportedCredentials    []SupportedCredentialConfig `yaml:"supported_credentials" validate:"required"`
+	PresentationRequestsDir string                      `yaml:"presentation_requests_dir,omitempty"` // Optional: directory with presentation request templates
 }
 
 // SupportedCredentialConfig maps credential types to OIDC scopes

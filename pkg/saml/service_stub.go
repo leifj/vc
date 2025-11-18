@@ -53,13 +53,23 @@ func (s *Service) MapToClaims(ctx context.Context, assertion *Assertion, credent
 
 // SAMLSession stub type
 type SAMLSession struct {
-	ID             string
-	CredentialType string
-	IDPEntityID    string
+	ID                 string
+	SAMLType           string
+	CredentialType     string
+	CredentialConfigID string
+	IDPEntityID        string
 }
+
+// ClaimTransformer stub type
+type ClaimTransformer struct{}
 
 // GetSession stub
 func (s *Service) GetSession(sessionID string) (*SAMLSession, error) {
+	return nil, fmt.Errorf("SAML support not compiled in")
+}
+
+// BuildTransformer stub
+func (s *Service) BuildTransformer() (*ClaimTransformer, error) {
 	return nil, fmt.Errorf("SAML support not compiled in")
 }
 

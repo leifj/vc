@@ -9,16 +9,18 @@ import (
 )
 
 // AttributeMapper handles mapping between SAML attributes and credential claims
+// DEPRECATED: Use ClaimTransformer instead for new implementations
 type AttributeMapper struct {
 	mappings map[string]model.SAMLAttributeMapping
 	log      *logger.Log
 }
 
 // NewAttributeMapper creates a new attribute mapper
+// DEPRECATED: Use BuildTransformer() and ClaimTransformer instead
 func NewAttributeMapper(mappings []model.SAMLAttributeMapping, log *logger.Log) *AttributeMapper {
 	mappingMap := make(map[string]model.SAMLAttributeMapping)
 	for _, mapping := range mappings {
-		mappingMap[mapping.CredentialType] = mapping
+		mappingMap[mapping.SAMLType] = mapping
 	}
 
 	return &AttributeMapper{
@@ -28,46 +30,46 @@ func NewAttributeMapper(mappings []model.SAMLAttributeMapping, log *logger.Log) 
 }
 
 // MapAttributes maps SAML attributes to credential claims
-func (m *AttributeMapper) MapAttributes(samlAttrs map[string][]string, credentialType string) (map[string]interface{}, error) {
-	mapping, ok := m.mappings[credentialType]
+// DEPRECATED: Use ClaimTransformer.TransformClaims() instead
+func (m *AttributeMapper) MapAttributes(samlAttrs map[string][]string, samlType string) (map[string]interface{}, error) {
+	mapping, ok := m.mappings[samlType]
 	if !ok {
-		return nil, fmt.Errorf("no attribute mapping found for credential type: %s", credentialType)
+		return nil, fmt.Errorf("no attribute mapping found for SAML type: %s", samlType)
 	}
 
 	claims := make(map[string]interface{})
 
-	for samlAttr, claimName := range mapping.Attributes {
+	for samlAttr, attrCfg := range mapping.Attributes {
 		values, exists := samlAttrs[samlAttr]
 		if !exists {
-			m.log.Debug("SAML attribute not present",
-				"saml_attr", samlAttr,
-				"claim_name", claimName,
-				"credential_type", credentialType)
+			// Check if required
+			if attrCfg.Required {
+				return nil, fmt.Errorf("required attribute missing: %s (claim: %s)", samlAttr, attrCfg.Claim)
+			}
+			// Use default if available
+			if attrCfg.Default != "" {
+				claims[attrCfg.Claim] = attrCfg.Default
+			}
 			continue
 		}
 
+		var value interface{}
 		if len(values) == 1 {
-			claims[claimName] = values[0]
+			value = values[0]
 		} else if len(values) > 1 {
-			claims[claimName] = values
+			value = values
+		} else {
+			continue
 		}
-	}
 
-	if len(mapping.RequiredAttributes) > 0 {
-		for _, requiredAttr := range mapping.RequiredAttributes {
-			claimName, ok := mapping.Attributes[requiredAttr]
-			if !ok {
-				continue
-			}
+		// Apply transformation
+		value = applyTransform(value, attrCfg.Transform)
 
-			if _, exists := claims[claimName]; !exists {
-				return nil, fmt.Errorf("required attribute missing: %s (claim: %s)", requiredAttr, claimName)
-			}
-		}
+		claims[attrCfg.Claim] = value
 	}
 
 	m.log.Debug("mapped SAML attributes",
-		"credential_type", credentialType,
+		"saml_type", samlType,
 		"saml_attrs_count", len(samlAttrs),
 		"mapped_claims_count", len(claims))
 
@@ -75,14 +77,14 @@ func (m *AttributeMapper) MapAttributes(samlAttrs map[string][]string, credentia
 }
 
 // IsValidCredentialType checks if a credential type has a mapping configured
-func (m *AttributeMapper) IsValidCredentialType(credentialType string) bool {
-	_, ok := m.mappings[credentialType]
+func (m *AttributeMapper) IsValidCredentialType(samlType string) bool {
+	_, ok := m.mappings[samlType]
 	return ok
 }
 
 // GetDefaultIdP returns the default IdP for a credential type, if configured
-func (m *AttributeMapper) GetDefaultIdP(credentialType string) (string, bool) {
-	mapping, ok := m.mappings[credentialType]
+func (m *AttributeMapper) GetDefaultIdP(samlType string) (string, bool) {
+	mapping, ok := m.mappings[samlType]
 	if !ok {
 		return "", false
 	}
@@ -96,4 +98,22 @@ func (m *AttributeMapper) GetSupportedCredentialTypes() []string {
 		types = append(types, credType)
 	}
 	return types
+}
+
+// GetCredentialType returns the credential_constructor key for a SAML type
+func (m *AttributeMapper) GetCredentialType(samlType string) (string, bool) {
+	mapping, ok := m.mappings[samlType]
+	if !ok {
+		return "", false
+	}
+	return mapping.CredentialType, true
+}
+
+// GetCredentialConfigID returns the OpenID4VCI config ID for a SAML type
+func (m *AttributeMapper) GetCredentialConfigID(samlType string) (string, bool) {
+	mapping, ok := m.mappings[samlType]
+	if !ok {
+		return "", false
+	}
+	return mapping.CredentialConfigID, true
 }
