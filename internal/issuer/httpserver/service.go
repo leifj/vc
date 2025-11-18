@@ -8,7 +8,6 @@ import (
 	"vc/pkg/httphelpers"
 	"vc/pkg/logger"
 	"vc/pkg/model"
-	"vc/pkg/saml"
 	"vc/pkg/trace"
 
 	// swagger docs
@@ -28,17 +27,17 @@ type Service struct {
 	gin         *gin.Engine
 	tracer      *trace.Tracer
 	httpHelpers *httphelpers.Client
-	samlService *saml.Service
+	samlService SAMLService
 }
 
 // New creates a new httpserver service
-func New(ctx context.Context, cfg *model.Cfg, apiv1 *apiv1.Client, tracer *trace.Tracer, samlService *saml.Service, log *logger.Log) (*Service, error) {
+func New(ctx context.Context, cfg *model.Cfg, apiv1 *apiv1.Client, tracer *trace.Tracer, samlService SAMLService, log *logger.Log) (*Service, error) {
 	s := &Service{
-		cfg:         cfg,
-		log:         log.New("httpserver"),
-		apiv1:       apiv1,
-		gin:         gin.New(),
-		server:      &http.Server{
+		cfg:   cfg,
+		log:   log.New("httpserver"),
+		apiv1: apiv1,
+		gin:   gin.New(),
+		server: &http.Server{
 			ReadHeaderTimeout: 3 * time.Second,
 		},
 		tracer:      tracer,

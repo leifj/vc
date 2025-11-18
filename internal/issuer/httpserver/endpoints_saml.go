@@ -1,3 +1,5 @@
+//go:build saml
+
 package httpserver
 
 import (

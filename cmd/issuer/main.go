@@ -12,7 +12,6 @@ import (
 	"vc/internal/issuer/httpserver"
 	"vc/pkg/configuration"
 	"vc/pkg/logger"
-	"vc/pkg/saml"
 	"vc/pkg/trace"
 )
 
@@ -58,16 +57,10 @@ func main() {
 	}
 
 	// Initialize SAML service if enabled
-	var samlService *saml.Service
-	if cfg.Issuer.SAML.Enabled {
-		samlService, err = saml.New(ctx, &cfg.Issuer.SAML, log)
-		if err != nil {
-			mainLog.Error(err, "Failed to initialize SAML service")
-			panic(err)
-		}
-		mainLog.Info("SAML service initialized", "entity_id", cfg.Issuer.SAML.EntityID)
-	} else {
-		mainLog.Info("SAML service disabled")
+	samlService, err := initSAMLService(ctx, cfg, mainLog)
+	if err != nil {
+		mainLog.Error(err, "Failed to initialize SAML service")
+		panic(err)
 	}
 
 	httpService, err := httpserver.New(ctx, cfg, apiv1Client, tracer, samlService, log)
