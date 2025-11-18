@@ -24,9 +24,7 @@ developer_tools/pki/*
 /verifier
 
 # Working documents (not tracked in git)
-PR_STRATEGY.md
-COMMIT_PLAN.md
-docs/design/
+docs/design
 
 # OIDC Conformance testing artifacts
 config.conformance.yaml
