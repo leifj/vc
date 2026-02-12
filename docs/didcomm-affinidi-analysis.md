@@ -19,7 +19,7 @@ This document analyzes the Affinidi Messaging Mediator protocol suite and compar
 3. [Affinidi Custom Protocols](#affinidi-custom-protocols)
 4. [Architectural Differences](#architectural-differences)
 5. [Interoperability Analysis](#interoperability-analysis)
-6. [Profile Announcement Proposals](#profile-announcement-proposals)
+6. [Protocol Announcement: Recommended Approach](#protocol-announcement-recommended-approach)
 7. [Implementation Recommendations](#implementation-recommendations)
 8. [Test Strategy](#test-strategy)
 
@@ -272,116 +272,108 @@ The Affinidi mediator's DID document includes:
 
 ### Migration Path for Clients
 
-A client wanting to work with both standard and Affinidi mediators needs:
+A client working with both standard and Affinidi mediators checks the `protocols` field in the DID document:
 
-```
-if (mediator.supportsProtocol("coordinate-mediation/3.0")) {
-    // Standard flow
-    send(mediateRequest)
-    await(mediateGrant)
-    send(keylistUpdate)
-} else if (mediator.supportsProtocol("mediator/1.0/account-management")) {
-    // Affinidi flow
-    send(accountAdd)
-    // No key registration needed
+```go
+func selectMediationFlow(didDoc map[string]interface{}) {
+    service := findDIDCommService(didDoc)
+    protocols := service["protocols"].([]string)
+    
+    if contains(protocols, "coordinate-mediation/3.0") {
+        // Standard DIDComm flow
+        send(mediateRequest)
+        await(mediateGrant)
+        send(keylistUpdate)
+    } else if contains(protocols, "mediator/1.0/account-management") {
+        // Affinidi flow
+        send(accountAdd)
+        // No key registration needed
+    } else if protocols == nil {
+        // No protocols listed - assume standard
+        send(mediateRequest)
+        // ...
+    }
 }
 ```
 
 ---
 
-## Profile Announcement Proposals
+## Protocol Announcement: Recommended Approach
 
-The core issue: **How does a client discover which mediation protocol a mediator supports?**
+The solution is simple: **list supported protocol URIs in the DID document's `DIDCommMessaging` service.**
 
-### Option A: DID Document Service Extension
+The protocol type URIs themselves ARE the profile - no additional abstraction needed.
 
-Add protocol list to the DIDCommMessaging service:
+### DID Document Service with Protocol List
 
 ```json
 {
   "type": "DIDCommMessaging",
-  "serviceEndpoint": [...],
+  "serviceEndpoint": [
+    {"uri": "https://public-mediator.example.com/v1", "accept": ["didcomm/v2"]},
+    {"uri": "wss://public-mediator.example.com/v1/ws", "accept": ["didcomm/v2"]}
+  ],
   "protocols": [
     "https://didcomm.org/trust-ping/2.0",
     "https://didcomm.org/routing/2.0",
     "https://didcomm.org/messagepickup/3.0",
-    "https://didcomm.org/mediator/1.0/account-management"
-  ],
-  "profile": "affinidi-mediator-1.0"
+    "https://didcomm.org/mediator/1.0/account-management",
+    "https://didcomm.org/mediator/1.0/acl-management"
+  ]
 }
 ```
 
-**Pros:** Static, cacheable, no extra round-trip  
-**Cons:** Requires DID document update on protocol changes
+### Client Detection Logic
 
-### Option B: Discover Features 2.0
+```go
+func detectMediationProtocol(service map[string]interface{}) string {
+    protocols, ok := service["protocols"].([]interface{})
+    if !ok {
+        // No protocols listed - assume standard DIDComm mediation
+        return "coordinate-mediation/3.0"
+    }
+    
+    for _, p := range protocols {
+        uri := p.(string)
+        if strings.Contains(uri, "coordinate-mediation/3.0") {
+            return "coordinate-mediation/3.0"
+        }
+        if strings.Contains(uri, "mediator/1.0/account-management") {
+            return "affinidi-account-management/1.0"
+        }
+    }
+    
+    return "unknown"
+}
+```
 
-Use the standard DIDComm feature discovery protocol:
+### Why This Works
+
+1. **No new abstraction** - Protocol URIs already uniquely identify capabilities
+2. **Static & cacheable** - Part of the DID document, no round-trip needed
+3. **Backward compatible** - Absence of `protocols` field = assume standard
+4. **Self-describing** - Client can immediately determine which flow to use
+
+### Specification Change Required
+
+Add to DIDComm Messaging specification:
+
+> A `DIDCommMessaging` service MAY include a `protocols` property containing an array of protocol type URIs that the service endpoint supports. If omitted, clients SHOULD assume standard DIDComm protocols are supported.
+
+### Alternative: Discover Features 2.0
+
+For dynamic discovery, Discover Features 2.0 can supplement the static list:
 
 ```json
 {
   "type": "https://didcomm.org/discover-features/2.0/queries",
   "body": {
-    "queries": [
-      {"feature-type": "protocol", "match": "https://didcomm.org/*"}
-    ]
+    "queries": [{"feature-type": "protocol", "match": "https://didcomm.org/*"}]
   }
 }
 ```
 
-**Pros:** Dynamic, standard DIDComm protocol  
-**Cons:** Requires authenticated message exchange
-
-### Option C: Well-Known Endpoint
-
-`GET /.well-known/didcomm-mediator`
-
-```json
-{
-  "profile": "affinidi-mediator-1.0",
-  "version": "0.7.0",
-  "protocols": {
-    "trust-ping": "2.0",
-    "routing": "2.0",
-    "messagepickup": "3.0",
-    "account-management": "1.0",
-    "acl-management": "1.0",
-    "admin-management": "1.0"
-  },
-  "extensions": {
-    "ephemeral_messages": true,
-    "delayed_delivery": true,
-    "live_delivery": true
-  }
-}
-```
-
-**Pros:** No DIDComm required, standard HTTP  
-**Cons:** New convention, not part of DID spec
-
-### Option D: Linked Verifiable Presentation
-
-Use the existing `LinkedVerifiablePresentation` service to include capability attestations:
-
-```json
-{
-  "type": "LinkedVerifiablePresentation",
-  "serviceEndpoint": ".../capabilities.vp"
-}
-```
-
-The VP contains claims about supported protocols.
-
-**Pros:** Cryptographically verifiable, already in Affinidi DID doc  
-**Cons:** Heavyweight for simple capability discovery
-
-### Recommended Approach
-
-**Hybrid: Option A + Option B**
-
-1. List supported protocols in DID document (Option A)
-2. Support Discover Features 2.0 for dynamic queries (Option B)
-3. Use `profile` field to indicate the overall profile name
+This is useful when the mediator may enable/disable protocols dynamically, but the DID document approach is sufficient for most cases
 
 ---
 
