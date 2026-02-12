@@ -1,4 +1,4 @@
-.PHONY : docker-build docker-push release build-issuer-hsm build-apigw-saml build-apigw-oidcrp build-apigw-all test-saml test-oidcrp test-vc20 test-pkcs11 test-all-tags docker-build-apigw-saml docker-build-apigw-oidcrp docker-build-apigw-all docker-build-issuer-hsm pki pki-clean
+.PHONY : docker-build docker-push release build-issuer-hsm build-apigw-saml build-apigw-oidcrp build-apigw-all test-saml test-oidcrp test-vc20 test-pkcs11 test-all-tags test-didcomm test-didcomm-interop test-didcomm-all docker-build-apigw-saml docker-build-apigw-oidcrp docker-build-apigw-all docker-build-issuer-hsm pki pki-clean
 
 NAME 					:= vc
 LDFLAGS                 := -ldflags "-w -s --extldflags '-static'"
@@ -192,6 +192,19 @@ test-pkcs11:
 test-all-tags:
 	$(info Testing with all build tags)
 	go test -tags "saml,oidcrp,vc20,pkcs11" -v ./...
+
+# DIDComm v2.1 Test targets
+test-didcomm:
+	$(info Testing DIDComm v2.1 implementation)
+	go test -tags "didcomm,vc20" -v ./pkg/didcomm/...
+
+test-didcomm-interop:
+	$(info Running DIDComm interoperability tests)
+	go test -tags "didcomm,vc20,didcomm_interop" -v ./test/didcomm_interop/...
+
+test-didcomm-all:
+	$(info Running all DIDComm tests including interop)
+	go test -tags "didcomm,vc20,didcomm_interop" -v ./pkg/didcomm/... ./test/didcomm_interop/...
 
 docker-build: docker-build-verifier docker-build-registry docker-build-persistent docker-build-mockas docker-build-apigw docker-build-issuer docker-build-ui
 
