@@ -304,6 +304,57 @@ The solution is simple: **list supported protocol URIs in the DID document's `DI
 
 The protocol type URIs themselves ARE the profile - no additional abstraction needed.
 
+### Current vs Proposed: Key Differences
+
+| Aspect | Current DIDComm | Proposed Extension |
+|--------|----------------|-------------------|
+| **What DID doc declares** | Transport only (`accept: ["didcomm/v2"]`) | Transport + Protocols |
+| **Protocol discovery** | Discover Features 2.0 (requires message exchange) | Static in DID document |
+| **When client knows capabilities** | After authenticated exchange | Before first message |
+| **Round trips required** | Minimum 1 (often 2+) | Zero |
+| **Failure mode** | Try → Problem Report → Retry | Know upfront, no failures |
+| **Cacheability** | Not cacheable (dynamic) | Fully cacheable with DID doc |
+
+#### Current Approach: Discover Features 2.0
+
+```
+Client                              Mediator
+   |                                   |
+   |  [Resolve DID document]           |
+   |  (only learns: "accepts didcomm/v2")
+   |                                   |
+   |---- discover-features/queries --->|  (1st round trip)
+   |<--- discover-features/disclose ---|
+   |                                   |
+   |  [Now knows: supports account-management, not coordinate-mediation]
+   |                                   |
+   |---- account_add ----------------->|  (2nd round trip)
+   |<--- account response -------------|
+```
+
+**Problems:**
+1. Must establish encrypted channel before learning capabilities
+2. Extra round trip adds latency
+3. Cannot pre-select flow without sending a message first4. If Discover Features isn't supported, must guess and fail
+
+#### Proposed Approach: Static Protocol List
+
+```
+Client                              Mediator
+   |                                   |
+   |  [Resolve DID document]           |
+   |  (learns: supports account-management, messagepickup, etc.)
+   |                                   |
+   |---- account_add ----------------->|  (1st round trip - correct flow!)
+   |<--- account response -------------|
+```
+
+**Benefits:**
+1. Zero-knowledge setup - client knows flow before any DIDComm exchange
+2. One fewer round trip
+3. Works even if mediator doesn't support Discover Features
+4. DID document caching means essentially free capability lookup
+
 ### DID Document Service with Protocol List
 
 ```json
