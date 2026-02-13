@@ -1,4 +1,5 @@
 //go:build didcomm && vc20 && integration
+// +build didcomm,vc20,integration
 
 // Package didcomm_test provides integration tests for mediator routing.
 //
@@ -115,7 +116,7 @@ func (m *mockMediatorServer) handleMessage(w http.ResponseWriter, r *http.Reques
 	select {
 	case m.receivedMsgs <- body:
 	default:
-		// Channel full, discard oldest
+		// Channel full, drop new message to avoid blocking
 	}
 
 	// If response function is set, use it
@@ -137,11 +138,22 @@ func (m *mockMediatorServer) handleMessage(w http.ResponseWriter, r *http.Reques
 }
 
 // DIDDocument returns a mock DID document for the mediator.
-func (m *mockMediatorServer) DIDDocument() map[string]interface{} {
-	pubKey, _ := m.routingKeyJWK.PublicKey()
-	pubKeyBytes, _ := json.Marshal(pubKey)
+// Errors are logged via t.Helper pattern in tests.
+func (m *mockMediatorServer) DIDDocument(t *testing.T) map[string]interface{} {
+	t.Helper()
+
+	pubKey, err := m.routingKeyJWK.PublicKey()
+	if err != nil {
+		t.Fatalf("Failed to get public key: %v", err)
+	}
+	pubKeyBytes, err := json.Marshal(pubKey)
+	if err != nil {
+		t.Fatalf("Failed to marshal public key: %v", err)
+	}
 	pubKeyMap := make(map[string]interface{})
-	json.Unmarshal(pubKeyBytes, &pubKeyMap)
+	if err := json.Unmarshal(pubKeyBytes, &pubKeyMap); err != nil {
+		t.Fatalf("Failed to unmarshal public key: %v", err)
+	}
 
 	return map[string]interface{}{
 		"@context": []string{

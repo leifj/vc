@@ -21,7 +21,8 @@ This document analyzes the Affinidi Messaging Mediator protocol suite and compar
 5. [Interoperability Analysis](#interoperability-analysis)
 6. [Protocol Announcement: Recommended Approach](#protocol-announcement-recommended-approach)
 7. [Implementation Recommendations](#implementation-recommendations)
-8. [Test Strategy](#test-strategy)
+8. [Discover Features 2.0 Implementation Plan](#discover-features-20-implementation-plan)
+9. [Test Strategy](#test-strategy)
 
 ---
 
@@ -33,10 +34,13 @@ This document analyzes the Affinidi Messaging Mediator protocol suite and compar
 | **Routing/Forward 2.0** | ✅ Supported | ✅ Supported + extensions | ✅ Yes |
 | **Message Pickup 3.0** | ✅ Supported | ✅ Supported | ✅ Yes |
 | **Problem Report 2.0** | ✅ Supported | ✅ Supported (outbound only) | ✅ Yes |
+| **Discover Features 2.0** | ✅ Supported | ❌ NOT Supported | ❌ No |
 | **Coordinate Mediation 3.0** | ✅ Supported | ❌ NOT Supported | ❌ No |
 | **Account Management 1.0** | ❌ Not specified | ✅ Supported | N/A |
 | **Admin Management 1.0** | ❌ Not specified | ✅ Supported | N/A |
 | **ACL Management 1.0** | ❌ Not specified | ✅ Supported | N/A |
+
+**Note:** The absence of Discover Features 2.0 support is a notable gap—see [Discover Features 2.0 Implementation Plan](#discover-features-20-implementation-plan) for details.
 
 ---
 
@@ -660,6 +664,385 @@ func TestLiveAffinidiAccountAdd(t *testing.T) {
 
 ---
 
+## Discover Features 2.0 Implementation Plan
+
+### Gap Analysis
+
+The Affinidi mediator **does not currently support** the Discover Features 2.0 protocol (`https://didcomm.org/discover-features/2.0/`). This creates a significant interoperability gap:
+
+| Issue | Impact |
+|-------|--------|
+| No dynamic capability discovery | Standard DIDComm clients cannot query supported protocols |
+| No runtime verification | Cannot verify DID document claims dynamically |
+| Breaks existing client code | Clients using Discover Features get `me.not_implemented` error |
+| One-way interop only | Affinidi clients must already know the profile |
+
+### Current Affinidi Codebase Structure
+
+Based on analysis of the [Affinidi TDK Rust codebase](https://github.com/affinidi/affinidi-tdk-rs):
+
+```
+affinidi-messaging-mediator/src/
+├── messages/
+│   ├── mod.rs           # Message routing (MessageHandler trait)
+│   ├── inbound.rs       # Inbound message handling
+│   └── protocols/
+│       ├── mod.rs       # Protocol exports
+│       ├── ping.rs      # Trust Ping 2.0
+│       ├── routing.rs   # Routing 2.0
+│       ├── message_pickup.rs  # Message Pickup 3.0
+│       └── mediator/    # Custom Affinidi protocols
+│           ├── accounts.rs
+│           ├── acls.rs
+│           └── administration.rs
+
+affinidi-messaging-sdk/src/
+└── messages/
+    └── known.rs         # MessageType enum definition
+```
+
+The message routing in `mod.rs` uses a match statement on `SDKMessageType`:
+
+```rust
+match self.0 {
+    SDKMessageType::TrustPing => ping::process(message, session),
+    SDKMessageType::ForwardRequest => routing::process(...),
+    SDKMessageType::MessagePickupStatusRequest => message_pickup::status_request(...),
+    // ... etc
+    SDKMessageType::Other(ref type_) => Err(MediatorError::MediatorError(
+        66, // "me.not_implemented"
+        ...
+    )),
+}
+```
+
+### Implementation Plan
+
+#### Step 1: SDK Message Type Additions (`affinidi-messaging-sdk`)
+
+**File:** `src/messages/known.rs`
+
+Add new variants to `MessageType` enum:
+
+```rust
+pub enum MessageType {
+    // ... existing variants ...
+    
+    // NEW: Discover Features 2.0
+    DiscoverFeaturesQueries,    // Discover Features 2.0 queries request
+    DiscoverFeaturesDisclose,   // Discover Features 2.0 disclose response
+    
+    // ... rest ...
+}
+```
+
+Add parsing logic in `FromStr` implementation:
+
+```rust
+impl FromStr for MessageType {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            // ... existing ...
+            
+            "https://didcomm.org/discover-features/2.0/queries" => {
+                Ok(Self::DiscoverFeaturesQueries)
+            }
+            "https://didcomm.org/discover-features/2.0/disclose" => {
+                Ok(Self::DiscoverFeaturesDisclose)
+            }
+            
+            // ... rest ...
+        }
+    }
+}
+```
+
+#### Step 2: Create Discover Features Handler (`affinidi-messaging-mediator`)
+
+**New File:** `src/messages/protocols/discover_features.rs`
+
+```rust
+//! Discover Features Protocol 2.0 Handler
+//! https://didcomm.org/discover-features/2.0/
+
+use crate::{SharedData, database::session::Session};
+use affinidi_messaging_didcomm::Message;
+use affinidi_messaging_mediator_common::errors::MediatorError;
+use serde::{Deserialize, Serialize};
+
+use super::ProcessMessageResponse;
+
+/// https://didcomm.org/discover-features/2.0/queries
+const TYPE_QUERIES: &str = "https://didcomm.org/discover-features/2.0/queries";
+/// https://didcomm.org/discover-features/2.0/disclose
+const TYPE_DISCLOSE: &str = "https://didcomm.org/discover-features/2.0/disclose";
+
+/// Supported protocol URIs for disclosure
+const SUPPORTED_PROTOCOLS: &[&str] = &[
+    "https://didcomm.org/trust-ping/2.0",
+    "https://didcomm.org/routing/2.0",
+    "https://didcomm.org/messagepickup/3.0",
+    "https://didcomm.org/discover-features/2.0",
+    "https://didcomm.org/mediator/1.0/account-management",
+    "https://didcomm.org/mediator/1.0/acl-management",
+    "https://didcomm.org/mediator/1.0/admin-management",
+];
+
+#[derive(Debug, Deserialize)]
+pub struct QueriesBody {
+    pub queries: Vec<Query>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub struct Query {
+    pub feature_type: String,
+    #[serde(rename = "match")]
+    pub match_pattern: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct DiscloseBody {
+    pub disclosures: Vec<Disclosure>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub struct Disclosure {
+    pub feature_type: String,
+    pub id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub roles: Option<Vec<String>>,
+}
+
+/// Process a discover-features/2.0/queries message
+pub(crate) fn process(
+    message: &Message,
+    session: &Session,
+) -> Result<ProcessMessageResponse, MediatorError> {
+    let body: QueriesBody = serde_json::from_value(message.body.clone())
+        .map_err(|e| MediatorError::MessageParse(format!("Invalid queries body: {}", e)))?;
+    
+    let mut disclosures: Vec<Disclosure> = Vec::new();
+    
+    for query in &body.queries {
+        match query.feature_type.as_str() {
+            "protocol" => {
+                let pattern = query.match_pattern.as_deref().unwrap_or("*");
+                for protocol in SUPPORTED_PROTOCOLS {
+                    if matches_pattern(protocol, pattern) {
+                        disclosures.push(Disclosure {
+                            feature_type: "protocol".to_string(),
+                            id: protocol.to_string(),
+                            roles: Some(vec!["mediator".to_string()]),
+                        });
+                    }
+                }
+            }
+            "goal-code" => {
+                // Affinidi doesn't use goal-codes currently
+                // Could add "aries.med.pickup" etc. if needed
+            }
+            _ => {
+                // Unknown feature type - skip per spec
+            }
+        }
+    }
+    
+    // Build response message
+    let response = Message::build(
+        uuid::Uuid::new_v4().to_string(),
+        TYPE_DISCLOSE.to_string(),
+        DiscloseBody { disclosures },
+    )
+    .thid(message.id.clone())
+    .to(message.from.clone().unwrap_or_default())
+    .from(message.to.as_ref().and_then(|t| t.first().cloned()).unwrap_or_default())
+    .finalize();
+    
+    Ok(ProcessMessageResponse {
+        store_message: false,
+        force_live_delivery: true,
+        forward_message: false,
+        data: WrapperType::Message(Box::new(response)),
+    })
+}
+
+/// Simple glob-style pattern matching for protocol URIs
+/// Supports: * (any chars), ? (single char)
+fn matches_pattern(uri: &str, pattern: &str) -> bool {
+    if pattern == "*" {
+        return true;
+    }
+    
+    // Convert glob to regex
+    let regex_pattern = pattern
+        .replace(".", "\\.")
+        .replace("*", ".*")
+        .replace("?", ".");
+    
+    regex::Regex::new(&format!("^{}$", regex_pattern))
+        .map(|re| re.is_match(uri))
+        .unwrap_or(false)
+}
+```
+
+#### Step 3: Register Handler in Message Router
+
+**File:** `src/messages/mod.rs`
+
+Add import:
+
+```rust
+use protocols::{
+    discover_features,  // NEW
+    mediator::{accounts, acls, administration},
+    message_pickup, routing,
+};
+```
+
+Add routing branches in `MessageType::process()`:
+
+```rust
+impl MessageType {
+    pub(crate) async fn process(&self, ...) -> Result<ProcessMessageResponse, MediatorError> {
+        match self.0 {
+            // ... existing ...
+            
+            // NEW: Discover Features 2.0
+            SDKMessageType::DiscoverFeaturesQueries => {
+                discover_features::process(message, session)
+            }
+            SDKMessageType::DiscoverFeaturesDisclose => {
+                // Mediator doesn't process disclose messages - it sends them
+                Err(MediatorError::MediatorError(
+                    66,
+                    session.session_id.clone(),
+                    Some(message.id.to_string()),
+                    Box::new(ProblemReport::new(
+                        ProblemReportSorter::Error,
+                        ProblemReportScope::Protocol,
+                        "me.not_implemented".into(),
+                        "Mediator doesn't respond to Discover Features disclose messages".into(),
+                        vec![],
+                        None,
+                    )),
+                    StatusCode::BAD_REQUEST.as_u16(),
+                    "Mediator doesn't respond to Discover Features disclose messages".to_string(),
+                ))
+            }
+            
+            // ... rest ...
+        }
+    }
+}
+```
+
+#### Step 4: Export New Module
+
+**File:** `src/messages/protocols/mod.rs`
+
+```rust
+pub mod discover_features;  // NEW
+pub mod mediator;
+pub mod message_pickup;
+pub mod ping;
+pub mod routing;
+```
+
+### Testing Plan
+
+#### Unit Tests
+
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[test]
+    fn test_discover_all_protocols() {
+        let query = QueriesBody {
+            queries: vec![Query {
+                feature_type: "protocol".to_string(),
+                match_pattern: Some("*".to_string()),
+            }],
+        };
+        
+        // Should return all SUPPORTED_PROTOCOLS
+    }
+    
+    #[test]
+    fn test_discover_specific_protocol() {
+        let query = QueriesBody {
+            queries: vec![Query {
+                feature_type: "protocol".to_string(),
+                match_pattern: Some("https://didcomm.org/trust-ping/*".to_string()),
+            }],
+        };
+        
+        // Should return only trust-ping/2.0
+    }
+    
+    #[test]
+    fn test_discover_unknown_feature_type() {
+        let query = QueriesBody {
+            queries: vec![Query {
+                feature_type: "unknown".to_string(),
+                match_pattern: None,
+            }],
+        };
+        
+        // Should return empty disclosures (per spec)
+    }
+}
+```
+
+#### Integration Tests
+
+```rust
+#[tokio::test]
+async fn test_discover_features_via_message() {
+    let mediator = setup_test_mediator().await;
+    
+    let query_msg = Message::build(
+        uuid::Uuid::new_v4().to_string(),
+        "https://didcomm.org/discover-features/2.0/queries",
+        json!({
+            "queries": [{"feature-type": "protocol", "match": "*"}]
+        }),
+    ).finalize();
+    
+    let response = mediator.handle_message(query_msg).await.unwrap();
+    
+    assert_eq!(response.type_, "https://didcomm.org/discover-features/2.0/disclose");
+    
+    let body: DiscloseBody = serde_json::from_value(response.body).unwrap();
+    assert!(body.disclosures.iter().any(|d| d.id.contains("trust-ping")));
+    assert!(body.disclosures.iter().any(|d| d.id.contains("account-management")));
+}
+```
+
+### Estimated Effort
+
+| Component | Effort | Complexity |
+|-----------|--------|------------|
+| SDK MessageType updates | 1 hour | Low |
+| Handler implementation | 2-3 hours | Medium |
+| Router integration | 30 min | Low |
+| Unit tests | 1-2 hours | Low |
+| Integration tests | 1-2 hours | Medium |
+| **Total** | **6-8 hours** | **Medium** |
+
+### Benefits After Implementation
+
+1. **Full DIDComm 2.1 compliance** for feature discovery
+2. **Interoperability** with standard DIDComm clients
+3. **Dual discovery** - both static (DID doc) and dynamic (Discover Features)
+4. **Runtime verification** of capabilities
+5. **Better error handling** - clients can check support before sending unsupported messages
+
+---
+
 ## References
 
 1. [Affinidi DIDComm Protocols Documentation](https://github.com/affinidi/affinidi-tdk-rs/blob/main/crates/affinidi-messaging/affinidi-messaging-mediator/docs/didcomm-protocols.md)
@@ -685,6 +1068,8 @@ func TestLiveAffinidiAccountAdd(t *testing.T) {
 | Pickup Delivery | `https://didcomm.org/messagepickup/3.0/delivery` |
 | Pickup Received | `https://didcomm.org/messagepickup/3.0/messages-received` |
 | Problem Report | `https://didcomm.org/report-problem/2.0/problem-report` |
+| Discover Features Query | `https://didcomm.org/discover-features/2.0/queries` |
+| Discover Features Disclose | `https://didcomm.org/discover-features/2.0/disclose` |
 
 ### Affinidi Custom Protocols
 
@@ -699,6 +1084,8 @@ func TestLiveAffinidiAccountAdd(t *testing.T) {
 
 | Protocol | Type URI |
 |----------|----------|
+| Discover Features Query | `https://didcomm.org/discover-features/2.0/queries` |
+| Discover Features Disclose | `https://didcomm.org/discover-features/2.0/disclose` |
 | Mediate Request | `https://didcomm.org/coordinate-mediation/3.0/mediate-request` |
 | Mediate Grant | `https://didcomm.org/coordinate-mediation/3.0/mediate-grant` |
 | Mediate Deny | `https://didcomm.org/coordinate-mediation/3.0/mediate-deny` |
