@@ -411,20 +411,119 @@ Add to DIDComm Messaging specification:
 
 > A `DIDCommMessaging` service MAY include a `protocols` property containing an array of protocol type URIs that the service endpoint supports. If omitted, clients SHOULD assume standard DIDComm protocols are supported.
 
-### Alternative: Discover Features 2.0
+### Supporting Both Approaches (Recommended)
 
-For dynamic discovery, Discover Features 2.0 can supplement the static list:
+The static DID document approach and Discover Features 2.0 are **complementary, not mutually exclusive**. A mediator SHOULD support both:
+
+| Approach | Use Case | Client Type |
+|----------|----------|-------------|
+| **Static (DID doc)** | Initial capability discovery | New clients, optimization |
+| **Dynamic (Discover Features)** | Runtime verification, legacy | Existing DIDComm clients |
+
+#### Why Support Both?
+
+1. **Backward compatibility** - Existing clients using Discover Features 2.0 continue to work
+2. **Optimization** - New clients can skip the round-trip when DID doc has protocols
+3. **Verification** - Clients can verify DID doc claims via Discover Features
+4. **Dynamic changes** - If capabilities change at runtime, Discover Features reflects current state
+
+#### Mediator Implementation
+
+```
+Mediator Setup:
+1. Publish DID document with "protocols" array (static advertisement)
+2. Implement discover-features/2.0 handler (dynamic verification)
+3. Keep both in sync
+
+DID Document:
+{
+  "type": "DIDCommMessaging",
+  "protocols": ["https://didcomm.org/mediator/1.0/account-management", ...]
+}
+
+Discover Features Handler:
+- Respond to queries with same protocol list
+- Can filter by "match" pattern in query
+```
+
+#### Client Implementation
+
+```go
+func connectToMediator(didDoc map[string]interface{}) error {
+    service := findDIDCommService(didDoc)
+    
+    // Step 1: Check static protocol list (fast path)
+    if protocols, ok := service["protocols"].([]interface{}); ok {
+        flow := selectFlow(protocols)
+        if flow != "unknown" {
+            return executeFlow(flow)  // No Discover Features needed
+        }
+    }
+    
+    // Step 2: Fall back to Discover Features 2.0 (slow path)
+    // Only if DID doc doesn't have protocols or client wants verification
+    disclose, err := sendDiscoverFeatures(mediatorDID)
+    if err != nil {
+        return err
+    }
+    flow := selectFlowFromDisclose(disclose)
+    return executeFlow(flow)
+}
+```
+
+#### Sequence: Client with Both Options
+
+```
+Client                              Mediator
+   |                                   |
+   |  [Resolve DID document]           |
+   |  protocols: [account-management]  |
+   |                                   |
+   |  [FAST PATH: Use static info]     |
+   |---- account_add ----------------->|
+   |<--- account response -------------|
+   |                                   |
+   
+   -- OR if verification needed --
+   
+   |  [SLOW PATH: Verify via Discover Features]
+   |---- discover-features/queries --->|
+   |<--- discover-features/disclose ---|
+   |  [Confirms: account-management]   |
+   |---- account_add ----------------->|
+   |<--- account response -------------|
+```
+
+#### Affinidi Could Add This Today
+
+The Affinidi mediator could implement Discover Features 2.0 to expose the same capabilities:
 
 ```json
+// Query
 {
   "type": "https://didcomm.org/discover-features/2.0/queries",
   "body": {
-    "queries": [{"feature-type": "protocol", "match": "https://didcomm.org/*"}]
+    "queries": [{"feature-type": "protocol", "match": "*"}]
+  }
+}
+
+// Response (Disclose)
+{
+  "type": "https://didcomm.org/discover-features/2.0/disclose",
+  "body": {
+    "disclosures": [
+      {"feature-type": "protocol", "id": "https://didcomm.org/trust-ping/2.0"},
+      {"feature-type": "protocol", "id": "https://didcomm.org/routing/2.0"},
+      {"feature-type": "protocol", "id": "https://didcomm.org/messagepickup/3.0"},
+      {"feature-type": "protocol", "id": "https://didcomm.org/mediator/1.0/account-management"},
+      {"feature-type": "protocol", "id": "https://didcomm.org/mediator/1.0/acl-management"},
+      {"feature-type": "protocol", "id": "https://didcomm.org/mediator/1.0/admin-management"}
+    ]
   }
 }
 ```
 
-This is useful when the mediator may enable/disable protocols dynamically, but the DID document approach is sufficient for most cases
+This would make Affinidi mediators fully interoperable with existing DIDComm clients that use Discover Features 2.0 for capability discovery.
 
 ---
 
