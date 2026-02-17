@@ -1,0 +1,534 @@
+{
+  "claims": [
+    {
+      "description": "Regional or local subdivision that issued the document",
+      "display": [
+        {
+          "label": "Issuing Region",
+          "lang": "en"
+        }
+      ],
+      "path": [
+        "issuing_jurisdiction"
+      ],
+      "sd": "never"
+    },
+    {
+      "description": "Place where the person was born",
+      "display": [
+        {
+          "label": "Place of Birth",
+          "lang": "en"
+        }
+      ],
+      "path": [
+        "place_of_birth"
+      ],
+      "sd": "always"
+    },
+    {
+      "description": "Recorded sex or gender, using standard codes",
+      "display": [
+        {
+          "label": "Sex",
+          "lang": "en"
+        }
+      ],
+      "path": [
+        "sex"
+      ],
+      "sd": "always"
+    },
+    {
+      "description": "Street name of residence",
+      "display": [
+        {
+          "label": "Street",
+          "lang": "en"
+        }
+      ],
+      "path": [
+        "address",
+        "street_address"
+      ],
+      "sd": "always"
+    },
+    {
+      "description": "Start date of the document's validity",
+      "display": [
+        {
+          "label": "Issue Date",
+          "lang": "en"
+        }
+      ],
+      "path": [
+        "date_of_issuance"
+      ],
+      "sd": "always"
+    },
+    {
+      "description": "Unique identifier of the eduID document",
+      "display": [
+        {
+          "label": "Document Number",
+          "lang": "en"
+        }
+      ],
+      "path": [
+        "document_number"
+      ],
+      "sd": "always"
+    },
+    {
+      "description": "Unique personal identifier assigned by the authority",
+      "display": [
+        {
+          "label": "Personal ID",
+          "lang": "en"
+        }
+      ],
+      "path": [
+        "personal_administrative_number"
+      ],
+      "sd": "always"
+    },
+    {
+      "description": "Portrait photo of the holder",
+      "display": [
+        {
+          "label": "Picture",
+          "lang": "en"
+        }
+      ],
+      "path": [
+        "picture"
+      ],
+      "sd": "always"
+    },
+    {
+      "description": "First name(s), including middle name(s), at birth",
+      "display": [
+        {
+          "label": "Birth First Name",
+          "lang": "en"
+        }
+      ],
+      "path": [
+        "birth_given_name"
+      ],
+      "sd": "always"
+    },
+    {
+      "description": "Person's residential address",
+      "display": [
+        {
+          "label": "Address",
+          "lang": "en"
+        }
+      ],
+      "path": [
+        "address"
+      ],
+      "sd": "always"
+    },
+    {
+      "description": "Name of the issuing body or Member State",
+      "display": [
+        {
+          "label": "Issuing Authority",
+          "lang": "en"
+        }
+      ],
+      "path": [
+        "issuing_authority"
+      ],
+      "sd": "always"
+    },
+    {
+      "description": "Current last name(s) or surname(s)",
+      "display": [
+        {
+          "label": "Family Name",
+          "lang": "en"
+        }
+      ],
+      "path": [
+        "family_name"
+      ],
+      "sd": "always"
+    },
+    {
+      "description": "Full birth date (day, month, year)",
+      "display": [
+        {
+          "label": "Date of Birth",
+          "lang": "en"
+        }
+      ],
+      "path": [
+        "birthdate"
+      ],
+      "sd": "always"
+    },
+    {
+      "description": "Country where the person was born",
+      "display": [
+        {
+          "label": "Country of Birth",
+          "lang": "en"
+        }
+      ],
+      "path": [
+        "place_of_birth",
+        "country"
+      ],
+      "sd": "always"
+    },
+    {
+      "description": "Country or countries of nationality",
+      "display": [
+        {
+          "label": "Nationalities",
+          "lang": "en"
+        }
+      ],
+      "path": [
+        "nationalities"
+      ],
+      "sd": "always"
+    },
+    {
+      "description": "Indicates if the person is 65 years old or older",
+      "display": [
+        {
+          "label": "Age \u003e= 65",
+          "lang": "en"
+        }
+      ],
+      "path": [
+        "age_equal_or_over",
+        "65"
+      ],
+      "sd": "always"
+    },
+    {
+      "description": "Person's email address",
+      "display": [
+        {
+          "label": "Email",
+          "lang": "en"
+        }
+      ],
+      "path": [
+        "email"
+      ],
+      "sd": "always"
+    },
+    {
+      "description": "Street number of residence",
+      "display": [
+        {
+          "label": "House Number",
+          "lang": "en"
+        }
+      ],
+      "path": [
+        "address",
+        "house_number"
+      ],
+      "sd": "always"
+    },
+    {
+      "description": "Postal or ZIP code of residence",
+      "display": [
+        {
+          "label": "Postal Code",
+          "lang": "en"
+        }
+      ],
+      "path": [
+        "address",
+        "postal_code"
+      ],
+      "sd": "always"
+    },
+    {
+      "description": "Municipality, city, town, or village of residence",
+      "display": [
+        {
+          "label": "City",
+          "lang": "en"
+        }
+      ],
+      "path": [
+        "address",
+        "locality"
+      ],
+      "sd": "always"
+    },
+    {
+      "description": "Indicates if the person is 21 years old or older",
+      "display": [
+        {
+          "label": "Age \u003e= 21",
+          "lang": "en"
+        }
+      ],
+      "path": [
+        "age_equal_or_over",
+        "21"
+      ],
+      "sd": "always"
+    },
+    {
+      "description": "Current first name(s), including middle name(s) if applicable",
+      "display": [
+        {
+          "label": "Given Name",
+          "lang": "en"
+        }
+      ],
+      "path": [
+        "given_name"
+      ],
+      "sd": "always"
+    },
+    {
+      "description": "Full formatted address of residence",
+      "display": [
+        {
+          "label": "Full Address",
+          "lang": "en"
+        }
+      ],
+      "path": [
+        "address",
+        "formatted"
+      ],
+      "sd": "always"
+    },
+    {
+      "description": "Country where the person currently resides",
+      "display": [
+        {
+          "label": "Country",
+          "lang": "en"
+        }
+      ],
+      "path": [
+        "address",
+        "country"
+      ],
+      "sd": "always"
+    },
+    {
+      "description": "Indicates if the person is 18 years old or older",
+      "display": [
+        {
+          "label": "Age \u003e= 18",
+          "lang": "en"
+        }
+      ],
+      "path": [
+        "age_equal_or_over",
+        "18"
+      ],
+      "sd": "always"
+    },
+    {
+      "description": "Age threshold indicators",
+      "display": [
+        {
+          "label": "Age Thresholds",
+          "lang": "en"
+        }
+      ],
+      "path": [
+        "age_equal_or_over"
+      ],
+      "sd": "always"
+    },
+    {
+      "description": "Person's age in completed years",
+      "display": [
+        {
+          "label": "Age",
+          "lang": "en"
+        }
+      ],
+      "path": [
+        "age_in_years"
+      ],
+      "sd": "always"
+    },
+    {
+      "description": "Year in which the person was born",
+      "display": [
+        {
+          "label": "Birth Year",
+          "lang": "en"
+        }
+      ],
+      "path": [
+        "age_birth_year"
+      ],
+      "sd": "always"
+    },
+    {
+      "description": "End date of the document's validity",
+      "display": [
+        {
+          "label": "Expiry Date",
+          "lang": "en"
+        }
+      ],
+      "path": [
+        "date_of_expiry"
+      ],
+      "sd": "never"
+    },
+    {
+      "description": "The trust anchor used to verify the document",
+      "display": [
+        {
+          "label": "Trust Anchor",
+          "lang": "en"
+        }
+      ],
+      "path": [
+        "trust_anchor"
+      ],
+      "sd": "never"
+    },
+    {
+      "description": "Municipality, city, town, or village where the person was born",
+      "display": [
+        {
+          "label": "City of Birth",
+          "lang": "en"
+        }
+      ],
+      "path": [
+        "place_of_birth",
+        "locality"
+      ],
+      "sd": "always"
+    },
+    {
+      "description": "State, province, district, or local area where the person was born",
+      "display": [
+        {
+          "label": "Region of Birth",
+          "lang": "en"
+        }
+      ],
+      "path": [
+        "place_of_birth",
+        "region"
+      ],
+      "sd": "always"
+    },
+    {
+      "description": "Last name(s) or surname(s) at birth",
+      "display": [
+        {
+          "label": "Birth Last Name",
+          "lang": "en"
+        }
+      ],
+      "path": [
+        "birth_family_name"
+      ],
+      "sd": "always"
+    },
+    {
+      "description": "Indicates if the person is 16 years old or older",
+      "display": [
+        {
+          "label": "Age \u003e= 16",
+          "lang": "en"
+        }
+      ],
+      "path": [
+        "age_equal_or_over",
+        "16"
+      ],
+      "sd": "always"
+    },
+    {
+      "description": "Person's mobile phone number",
+      "display": [
+        {
+          "label": "Mobile",
+          "lang": "en"
+        }
+      ],
+      "path": [
+        "phone_number"
+      ],
+      "sd": "always"
+    },
+    {
+      "description": "State, province, or regional division of residence",
+      "display": [
+        {
+          "label": "Region",
+          "lang": "en"
+        }
+      ],
+      "path": [
+        "address",
+        "region"
+      ],
+      "sd": "always"
+    },
+    {
+      "description": "Indicates if the person is 14 years old or older",
+      "display": [
+        {
+          "label": "Age \u003e= 14",
+          "lang": "en"
+        }
+      ],
+      "path": [
+        "age_equal_or_over",
+        "14"
+      ],
+      "sd": "always"
+    },
+    {
+      "description": "Member State where the document was issued",
+      "display": [
+        {
+          "label": "Issuing Country",
+          "lang": "en"
+        }
+      ],
+      "path": [
+        "issuing_country"
+      ],
+      "sd": "always"
+    }
+  ],
+  "description": "A verifiable credential for educational identity, based on PID ARF 1.8. Provides identity attributes for students and staff within the education and research sector.",
+  "display": [
+    {
+      "rendering": {
+        "simple": {
+          "background_color": "#0d4f8b",
+          "text_color": "#ffffff"
+        },
+        "svg_templates": [
+          {
+            "uri": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMDAgMjAwIiB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCI+CiAgPCEtLSBCYWNrZ3JvdW5kIENpcmNsZSAtLT4KICA8Y2lyY2xlIGN4PSIxMDAiIGN5PSIxMDAiIHI9Ijk1IiBmaWxsPSIjMGQ0ZjhiIiBzdHJva2U9IiNmZmZmZmYiIHN0cm9rZS13aWR0aD0iMiIvPgogIAogIDwhLS0gQ3JlZGVudGlhbCBTeW1ib2wgLSBEb2N1bWVudCBJY29uIC0tPgogIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDUwLCAzMCkiPgogICAgPCEtLSBEb2N1bWVudCBvdXRsaW5lIC0tPgogICAgPHJlY3QgeD0iMCIgeT0iMCIgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMjAiIHJ4PSI1IiBmaWxsPSIjZmZmZmZmIiBvcGFjaXR5PSIwLjkiLz4KICAgIAogICAgPCEtLSBIZWFkZXIgbGluZXMgLS0+CiAgICA8cmVjdCB4PSIxNSIgeT0iMjAiIHdpZHRoPSI3MCIgaGVpZ2h0PSI4IiByeD0iMiIgZmlsbD0iIzBkNGY4YiIvPgogICAgPHJlY3QgeD0iMTUiIHk9IjM1IiB3aWR0aD0iNTAiIGhlaWdodD0iNiIgcng9IjIiIGZpbGw9IiMwZDRmOGIiIG9wYWNpdHk9IjAuNiIvPgogICAgCiAgICA8IS0tIENvbnRlbnQgbGluZXMgLS0+CiAgICA8cmVjdCB4PSIxNSIgeT0iNTUiIHdpZHRoPSI3MCIgaGVpZ2h0PSI0IiByeD0iMSIgZmlsbD0iIzBkNGY4YiIgb3BhY2l0eT0iMC40Ii8+CiAgICA8cmVjdCB4PSIxNSIgeT0iNjUiIHdpZHRoPSI2MCIgaGVpZ2h0PSI0IiByeD0iMSIgZmlsbD0iIzBkNGY4YiIgb3BhY2l0eT0iMC40Ii8+CiAgICA8cmVjdCB4PSIxNSIgeT0iNzUiIHdpZHRoPSI2NSIgaGVpZ2h0PSI0IiByeD0iMSIgZmlsbD0iIzBkNGY4YiIgb3BhY2l0eT0iMC40Ii8+CiAgICA8cmVjdCB4PSIxNSIgeT0iODUiIHdpZHRoPSI1NSIgaGVpZ2h0PSI0IiByeD0iMSIgZmlsbD0iIzBkNGY4YiIgb3BhY2l0eT0iMC40Ii8+CiAgICAKICAgIDwhLS0gQ2hlY2ttYXJrIC0gVmVyaWZpY2F0aW9uIFN5bWJvbCAtLT4KICAgIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDIwLCA5NSkiPgogICAgICA8Y2lyY2xlIGN4PSIxNSIgY3k9IjE1IiByPSIxNSIgZmlsbD0iIzJlY2M3MSIgb3BhY2l0eT0iMC45Ii8+CiAgICAgIDxwYXRoIGQ9Ik0gOCAxNSBMIDEzIDIwIEwgMjIgMTAiIHN0cm9rZT0iI2ZmZmZmZiIgc3Ryb2tlLXdpZHRoPSIzIiBmaWxsPSJub25lIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz4KICAgIDwvZz4KICA8L2c+CiAgCiAgPCEtLSBUZXh0IC0tPgogIDx0ZXh0IHg9IjEwMCIgeT0iMTgwIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTYiIGZpbGw9IiNmZmZmZmYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtd2VpZ2h0PSJib2xkIj4KICAgIGVkdUlECiAgPC90ZXh0Pgo8L3N2Zz4K"
+          },
+          {
+            "uri": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgMjUwIiB3aWR0aD0iNDAwIiBoZWlnaHQ9IjI1MCI+CiAgPGRlZnM+CiAgICA8bGluZWFyR3JhZGllbnQgaWQ9ImNhcmRHcmFkaWVudCIgeDE9IjAlIiB5MT0iMCUiIHgyPSIxMDAlIiB5Mj0iMTAwJSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0eWxlPSJzdG9wLWNvbG9yOiMwZDRmOGIiLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIxMDAlIiBzdHlsZT0ic3RvcC1jb2xvcjojMDYyYTRkIi8+CiAgICA8L2xpbmVhckdyYWRpZW50PgogICAgPGZpbHRlciBpZD0ic2hhZG93IiB4PSItMTAlIiB5PSItMTAlIiB3aWR0aD0iMTIwJSIgaGVpZ2h0PSIxMjAlIj4KICAgICAgPGZlRHJvcFNoYWRvdyBkeD0iMiIgZHk9IjQiIHN0ZERldmlhdGlvbj0iNCIgZmxvb2Qtb3BhY2l0eT0iMC4zIi8+CiAgICA8L2ZpbHRlcj4KICA8L2RlZnM+CiAgCiAgPCEtLSBDYXJkIGJhY2tncm91bmQgLS0+CiAgPHJlY3QgeD0iMCIgeT0iMCIgd2lkdGg9IjQwMCIgaGVpZ2h0PSIyNTAiIHJ4PSIxNiIgcnk9IjE2IiBmaWxsPSJ1cmwoI2NhcmRHcmFkaWVudCkiIGZpbHRlcj0idXJsKCNzaGFkb3cpIi8+CiAgCiAgPCEtLSBIZWFkZXIgc3RyaXBlIC0tPgogIDxyZWN0IHg9IjAiIHk9IjAiIHdpZHRoPSI0MDAiIGhlaWdodD0iNjAiIHJ4PSIxNiIgcnk9IjE2IiBmaWxsPSIjMDgzZDZiIi8+CiAgPHJlY3QgeD0iMCIgeT0iMzAiIHdpZHRoPSI0MDAiIGhlaWdodD0iMzAiIGZpbGw9IiMwODNkNmIiLz4KICAKICA8IS0tIEluc3RpdHV0aW9uIG5hbWUgLS0+CiAgPHRleHQgaWQ9Imlzc3VpbmdfYXV0aG9yaXR5IiB4PSIyMDAiIHk9IjQwIiBmaWxsPSJ3aGl0ZSIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjE4IiBmb250LXdlaWdodD0iYm9sZCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+ZWR1SUQ8L3RleHQ+CiAgCiAgPCEtLSBDYXJkIHR5cGUgbGFiZWwgLS0+CiAgPHRleHQgeD0iMjAwIiB5PSI4MCIgZmlsbD0id2hpdGUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxMiIgZm9udC13ZWlnaHQ9Im5vcm1hbCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgb3BhY2l0eT0iMC44Ij5FRFVDQVRJT05BTCBJREVOVElUWSBDUkVERU5USUFMPC90ZXh0PgogIAogIDwhLS0gUGhvdG8gcGxhY2Vob2xkZXIgYXJlYSAtLT4KICA8cmVjdCBpZD0icGljdHVyZSIgeD0iMjQiIHk9IjEwMCIgd2lkdGg9IjgwIiBoZWlnaHQ9IjEwMCIgcng9IjQiIHJ5PSI0IiBmaWxsPSJ3aGl0ZSIgb3BhY2l0eT0iMC4yIi8+CiAgPHRleHQgeD0iNjQiIHk9IjE1NSIgZmlsbD0id2hpdGUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgb3BhY2l0eT0iMC41Ij5QSE9UTzwvdGV4dD4KICAKICA8IS0tIE5hbWUgcGxhY2Vob2xkZXJzIC0tPgogIDx0ZXh0IGlkPSJnaXZlbl9uYW1lIiB4PSIxMjQiIHk9IjEyNSIgZmlsbD0id2hpdGUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIyMCIgZm9udC13ZWlnaHQ9ImJvbGQiPkdpdmVuIE5hbWU8L3RleHQ+CiAgPHRleHQgaWQ9ImZhbWlseV9uYW1lIiB4PSIxMjQiIHk9IjE1MCIgZmlsbD0id2hpdGUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIyMCIgZm9udC13ZWlnaHQ9ImJvbGQiPkZhbWlseSBOYW1lPC90ZXh0PgogIAogIDwhLS0gRW1haWwgLS0+CiAgPHRleHQgeD0iMTI0IiB5PSIxNzUiIGZpbGw9IndoaXRlIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTEiIG9wYWNpdHk9IjAuOCI+RW1haWw6PC90ZXh0PgogIDx0ZXh0IGlkPSJlbWFpbCIgeD0iMTY1IiB5PSIxNzUiIGZpbGw9IndoaXRlIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTEiPmVtYWlsQGV4YW1wbGUuY29tPC90ZXh0PgogIAogIDwhLS0gRG9jdW1lbnQgbnVtYmVyIHNlY3Rpb24gLS0+CiAgPHRleHQgeD0iMjQiIHk9IjIyNSIgZmlsbD0id2hpdGUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxMCIgb3BhY2l0eT0iMC43Ij5Eb2N1bWVudCBJRDo8L3RleHQ+CiAgPHRleHQgaWQ9ImRvY3VtZW50X251bWJlciIgeD0iMjQiIHk9IjI0MCIgZmlsbD0id2hpdGUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgZm9udC13ZWlnaHQ9ImJvbGQiPjAwMDAwMDAwMDwvdGV4dD4KICAKICA8IS0tIFZhbGlkaXR5IHNlY3Rpb24gLS0+CiAgPHRleHQgeD0iMzAwIiB5PSIyMjUiIGZpbGw9IndoaXRlIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTAiIHRleHQtYW5jaG9yPSJlbmQiIG9wYWNpdHk9IjAuNyI+VmFsaWQgVW50aWw6PC90ZXh0PgogIDx0ZXh0IGlkPSJleHBpcnlfZGF0ZSIgeD0iMzAwIiB5PSIyNDAiIGZpbGw9IndoaXRlIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTIiIHRleHQtYW5jaG9yPSJlbmQiPllZWVktTU0tREQ8L3RleHQ+CiAgCiAgPCEtLSBEZWNvcmF0aXZlIGVsZW1lbnQgLS0+CiAgPGNpcmNsZSBjeD0iMzcwIiBjeT0iMjIwIiByPSIyMCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIxLjUiIG9wYWNpdHk9IjAuMyIvPgogIDxjaXJjbGUgY3g9IjM3MCIgY3k9IjIyMCIgcj0iMTQiIGZpbGw9Im5vbmUiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMSIgb3BhY2l0eT0iMC4zIi8+Cjwvc3ZnPgo="
+          }
+        ]
+      }
+    }
+  ],
+  "name": "eduID Credential",
+  "vct": "urn:credential:eduid:1"
+}

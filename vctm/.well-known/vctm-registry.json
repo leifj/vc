@@ -1,0 +1,28 @@
+{
+  "version": "1.0",
+  "generated": "2026-02-17T13:47:45Z",
+  "repository": {
+    "url": "https://github.com/sirosfoundation/vc",
+    "owner": "sirosfoundation",
+    "name": "vc",
+    "branch": "main",
+    "commit": "6f5a1b606bdd03d1217b22b9e5049f7457fdde19"
+  },
+  "credentials": [
+    {
+      "vct": "urn:credential:eduid:1",
+      "name": "eduID Credential",
+      "source_file": "eduid.md",
+      "vctm_file": "eduid.vctm",
+      "last_modified": "2026-02-13T20:08:19+01:00",
+      "commit_history": [
+        {
+          "sha": "6f5a1b606bdd03d1217b22b9e5049f7457fdde19",
+          "message": "Merge pull request #262 from SUNET/vctm",
+          "author": "Magnus Svensson",
+          "date": "2026-02-13T20:08:19+01:00"
+        }
+      ]
+    }
+  ]
+}
