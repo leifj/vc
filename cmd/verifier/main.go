@@ -15,6 +15,9 @@ import (
 	"vc/pkg/configuration"
 	"vc/pkg/logger"
 	"vc/pkg/trace"
+
+	"flag"
+	"vc/internal/verifier/zk"
 )
 
 func init() {
@@ -32,7 +35,11 @@ func main() {
 		ctx                = context.Background()
 		services           = make(map[string]service)
 		serviceName string = "verifier"
+		circuitDir         = flag.String("circuit_dir", "/app/vc/internal/verifier/zk/circuits", "Directory from which to load circuits")
 	)
+
+	flag.Parse()
+	zk.LoadCircuits(*circuitDir)
 
 	cfg, err := configuration.New(ctx)
 	if err != nil {
