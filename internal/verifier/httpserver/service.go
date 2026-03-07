@@ -55,7 +55,10 @@ func New(ctx context.Context, cfg *model.Cfg, apiv1 *apiv1.Client, notify *notif
 		notify: notify,
 		tracer: tracer,
 		server: &http.Server{
-			ReadHeaderTimeout: 3 * time.Second,
+			ReadHeaderTimeout: 30 * time.Second,
+			ReadTimeout:       30 * time.Second,
+			WriteTimeout:      30 * time.Second,
+			IdleTimeout:       30 * time.Second,
 		},
 		sessionsName:     "verifier_user_session",
 		tokenLimiter:     middleware.NewRateLimiter(rateLimitConfig.TokenRequestsPerMinute, rateLimitConfig.TokenBurst),
@@ -187,6 +190,9 @@ func New(ctx context.Context, cfg *model.Cfg, apiv1 *apiv1.Client, notify *notif
 	s.httpHelpers.Server.RegEndpoint(ctx, rgOIDCVerification, http.MethodPost, "session-preference", http.StatusOK, s.endpointSessionPreference)
 	s.httpHelpers.Server.RegEndpoint(ctx, rgOIDCVerification, http.MethodGet, "display/:session_id", http.StatusOK, s.endpointCredentialDisplay)
 	s.httpHelpers.Server.RegEndpoint(ctx, rgOIDCVerification, http.MethodPost, "confirm/:session_id", http.StatusOK, s.endpointConfirmCredentialDisplay)
+
+	// Longfellow-zk verifier
+	s.httpHelpers.Server.RegEndpoint(ctx, rgOIDCVerification, http.MethodPost, "verify", http.StatusOK, s.endpointVerify)
 
 	// UI Endpoints (from verifier-proxy merge)
 	s.httpHelpers.Server.RegEndpoint(ctx, rgRoot, http.MethodGet, "qr/:session_id", http.StatusOK, s.endpointQRCode)
