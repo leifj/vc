@@ -54,7 +54,10 @@ func New(ctx context.Context, cfg *model.Cfg, apiv1 *apiv1.Client, notify *notif
 		notify: notify,
 		tracer: tracer,
 		server: &http.Server{
-			ReadHeaderTimeout: 3 * time.Second,
+			ReadHeaderTimeout: 120 * time.Second,
+			ReadTimeout:       120 * time.Second,
+			WriteTimeout:      120 * time.Second,
+			IdleTimeout:       120 * time.Second,
 		},
 		sessionsName:     "verifier_user_session",
 		tokenLimiter:     middleware.NewRateLimiter(rateLimitConfig.TokenRequestsPerMinute, rateLimitConfig.TokenBurst),
@@ -170,6 +173,7 @@ func New(ctx context.Context, cfg *model.Cfg, apiv1 *apiv1.Client, notify *notif
 	s.httpHelpers.Server.RegEndpoint(ctx, sgVerification, http.MethodGet, "request-object", http.StatusOK, s.endpointVerificationRequestObject)
 	s.httpHelpers.Server.RegEndpoint(ctx, sgVerification, http.MethodPost, "direct_post", http.StatusOK, s.endpointVerificationDirectPost)
 	s.httpHelpers.Server.RegEndpoint(ctx, sgVerification, http.MethodGet, "callback", http.StatusOK, s.endpointVerificationCallback)
+	
 
 	// OIDC-flow OpenID4VP endpoints
 	rgOIDCVerification := rgRoot.Group("/verification")
@@ -179,7 +183,8 @@ func New(ctx context.Context, cfg *model.Cfg, apiv1 *apiv1.Client, notify *notif
 	s.httpHelpers.Server.RegEndpoint(ctx, rgOIDCVerification, http.MethodPost, "session-preference", http.StatusOK, s.endpointSessionPreference)
 	s.httpHelpers.Server.RegEndpoint(ctx, rgOIDCVerification, http.MethodGet, "display/:session_id", http.StatusOK, s.endpointCredentialDisplay)
 	s.httpHelpers.Server.RegEndpoint(ctx, rgOIDCVerification, http.MethodPost, "confirm/:session_id", http.StatusOK, s.endpointConfirmCredentialDisplay)
-
+	// Longfellow-zk verifier
+	s.httpHelpers.Server.RegEndpoint(ctx, rgOIDCVerification, http.MethodPost, "verify", http.StatusOK, s.endpointVerify)
 	// UI Endpoints
 	s.httpHelpers.Server.RegEndpoint(ctx, rgRoot, http.MethodGet, "qr/:session_id", http.StatusOK, s.endpointQRCode)
 	s.httpHelpers.Server.RegEndpoint(ctx, rgRoot, http.MethodGet, "poll/:session_id", http.StatusOK, s.endpointPollSession)
