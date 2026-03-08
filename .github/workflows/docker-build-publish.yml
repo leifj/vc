@@ -41,6 +41,7 @@ jobs:
 
       - name: "Build and push docker images"
         run: |
-          export DOCKER_REGISTRY="${{ env.REGISTRY }}/${{ steps.lowercaser.outputs.name }}"
-          make docker-build
-          make docker-push
+          DOCKER_REGISTRY="${{ env.REGISTRY }}/${{ steps.lowercaser.outputs.name }}"
+          VERSION="${{ github.ref_name }}"
+          make docker-build "DOCKER_REGISTRY=${DOCKER_REGISTRY}" "VERSION=${VERSION}"
+          make docker-push "DOCKER_REGISTRY=${DOCKER_REGISTRY}" "VERSION=${VERSION}"
