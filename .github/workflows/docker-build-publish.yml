@@ -2,9 +2,6 @@ name: "Create and publish container images"
 
 on:
   push:
-    branches:
-      - "release/sirosid"
-      - "feature/github_build"
     tags:
       - "v*.*.**"
       - "v*.*.**-sirosid.*"
