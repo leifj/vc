@@ -5,7 +5,7 @@ on:
   push:
     # Restrict usage by tag protection rules
     tags:
-      - "v*.*.*"
+      - "v*.*.**"
     branches:
       - "sirosid/**"
       - "release/sirosid/**"
