@@ -10,7 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"vc/pkg/keyresolver"
+	"github.com/SUNET/vc/pkg/keyresolver"
 
 	"filippo.io/edwards25519"
 )

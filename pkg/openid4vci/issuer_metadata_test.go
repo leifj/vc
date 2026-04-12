@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"vc/pkg/pki"
+	"github.com/SUNET/vc/pkg/pki"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"

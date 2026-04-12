@@ -4,8 +4,8 @@ package samlsp
 
 import (
 	"fmt"
-	"vc/pkg/logger"
-	"vc/pkg/model"
+	"github.com/SUNET/vc/pkg/logger"
+	"github.com/SUNET/vc/pkg/model"
 )
 
 // AttributeMapper handles mapping between SAML attributes and credential claims

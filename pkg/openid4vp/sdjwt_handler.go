@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"vc/pkg/sdjwtvc"
+	"github.com/SUNET/vc/pkg/sdjwtvc"
 )
 
 // SDJWTHandler handles SD-JWT format credentials in OpenID4VP flows.

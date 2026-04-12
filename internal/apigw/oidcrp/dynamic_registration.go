@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"vc/pkg/model"
+	"github.com/SUNET/vc/pkg/model"
 )
 
 // RegistrationRequest represents RFC 7591 client registration request

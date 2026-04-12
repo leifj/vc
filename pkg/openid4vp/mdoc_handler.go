@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"strings"
 
-	"vc/pkg/mdoc"
+	"github.com/SUNET/vc/pkg/mdoc"
 )
 
 // MDocHandler handles mdoc format credentials in OpenID4VP flows.

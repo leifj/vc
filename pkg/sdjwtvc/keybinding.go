@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"hash"
 	"time"
-	"vc/pkg/jose"
+	"github.com/SUNET/vc/pkg/jose"
 
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/sha3"

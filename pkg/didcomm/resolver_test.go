@@ -12,7 +12,7 @@ import (
 	"errors"
 	"testing"
 
-	"vc/pkg/keyresolver"
+	"github.com/SUNET/vc/pkg/keyresolver"
 
 	"filippo.io/edwards25519"
 	"golang.org/x/crypto/curve25519"

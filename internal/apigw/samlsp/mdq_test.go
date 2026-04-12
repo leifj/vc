@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 	"time"
-	"vc/pkg/logger"
+	"github.com/SUNET/vc/pkg/logger"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

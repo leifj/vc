@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
-	"vc/pkg/sdjwtvc"
+	"github.com/SUNET/vc/pkg/sdjwtvc"
 )
 
 // ClaimsExtractor extracts and maps claims from VP tokens to OIDC claims

@@ -12,7 +12,7 @@ import (
 	"os"
 	"strings"
 	"time"
-	"vc/pkg/logger"
+	"github.com/SUNET/vc/pkg/logger"
 
 	"github.com/crewjam/saml"
 	"github.com/patrickmn/go-cache"

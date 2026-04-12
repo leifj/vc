@@ -6,9 +6,9 @@ import (
 	"context"
 	"fmt"
 
-	pkgcache "vc/pkg/cache"
-	"vc/pkg/logger"
-	"vc/pkg/model"
+	pkgcache "github.com/SUNET/vc/pkg/cache"
+	"github.com/SUNET/vc/pkg/logger"
+	"github.com/SUNET/vc/pkg/model"
 )
 
 // Service is a stub implementation when SAML is not enabled

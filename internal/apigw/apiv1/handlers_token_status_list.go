@@ -4,8 +4,8 @@ import (
 	"context"
 	"strconv"
 
-	"vc/internal/gen/registry/apiv1_registry"
-	"vc/pkg/tokenstatuslist"
+	"github.com/SUNET/vc/internal/gen/registry/apiv1_registry"
+	"github.com/SUNET/vc/pkg/tokenstatuslist"
 )
 
 // TokenStatusListsAddRecordRequest represents the request for adding a record to the Token Status List.

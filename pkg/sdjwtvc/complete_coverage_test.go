@@ -8,7 +8,7 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"testing"
-	"vc/pkg/jose"
+	"github.com/SUNET/vc/pkg/jose"
 
 	"golang.org/x/crypto/sha3"
 )

@@ -4,8 +4,8 @@ import (
 	"context"
 	"net/url"
 	"time"
-	"vc/pkg/crypto"
-	"vc/pkg/openid4vp"
+	"github.com/SUNET/vc/pkg/crypto"
+	"github.com/SUNET/vc/pkg/openid4vp"
 )
 
 // CreateRequestObject creates and signs an OpenID4VP request object

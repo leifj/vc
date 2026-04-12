@@ -8,10 +8,10 @@ import (
 	"fmt"
 	"time"
 
-	apiv1_issuer "vc/internal/gen/issuer/apiv1_issuer"
-	"vc/pkg/grpchelpers"
-	"vc/internal/apigw/oidcrp"
-	"vc/pkg/openid4vci"
+	apiv1_issuer "github.com/SUNET/vc/internal/gen/issuer/apiv1_issuer"
+	"github.com/SUNET/vc/pkg/grpchelpers"
+	"github.com/SUNET/vc/internal/apigw/oidcrp"
+	"github.com/SUNET/vc/pkg/openid4vci"
 
 	"go.opentelemetry.io/otel/codes"
 )

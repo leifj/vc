@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"time"
 
-	"vc/pkg/trust"
+	"github.com/SUNET/vc/pkg/trust"
 
 	"github.com/sirosfoundation/go-trust/pkg/trustapi"
 )

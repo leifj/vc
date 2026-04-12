@@ -3,7 +3,7 @@ package httpserver
 import (
 	"fmt"
 	"html"
-	"vc/internal/registry/apiv1"
+	"github.com/SUNET/vc/internal/registry/apiv1"
 )
 
 // Common CSS styles for all admin pages

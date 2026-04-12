@@ -9,10 +9,10 @@ import (
 	"fmt"
 	"net/http"
 
-	apiv1_issuer "vc/internal/gen/issuer/apiv1_issuer"
-	"vc/pkg/crypto"
-	"vc/pkg/grpchelpers"
-	"vc/pkg/openid4vci"
+	apiv1_issuer "github.com/SUNET/vc/internal/gen/issuer/apiv1_issuer"
+	"github.com/SUNET/vc/pkg/crypto"
+	"github.com/SUNET/vc/pkg/grpchelpers"
+	"github.com/SUNET/vc/pkg/openid4vci"
 
 	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/otel/codes"

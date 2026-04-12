@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
-	"vc/pkg/cache"
-	"vc/pkg/openid4vp"
-	"vc/pkg/sdjwtvc"
+	"github.com/SUNET/vc/pkg/cache"
+	"github.com/SUNET/vc/pkg/openid4vp"
+	"github.com/SUNET/vc/pkg/sdjwtvc"
 
 	"github.com/google/uuid"
 	"github.com/lestrrat-go/jwx/v3/jwa"

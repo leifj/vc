@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"vc/pkg/openid4vp"
+	"github.com/SUNET/vc/pkg/openid4vp"
 
 	"gopkg.in/yaml.v2"
 )

@@ -7,11 +7,11 @@ import (
 	"net/url"
 	"strings"
 	"time"
-	"vc/pkg/cache"
-	"vc/pkg/crypto"
-	"vc/pkg/helpers"
-	"vc/pkg/oauth2"
-	"vc/pkg/openid4vci"
+	"github.com/SUNET/vc/pkg/cache"
+	"github.com/SUNET/vc/pkg/crypto"
+	"github.com/SUNET/vc/pkg/helpers"
+	"github.com/SUNET/vc/pkg/oauth2"
+	"github.com/SUNET/vc/pkg/openid4vci"
 
 	"github.com/google/uuid"
 )

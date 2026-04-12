@@ -4,8 +4,8 @@ import (
 	"context"
 	"net/http"
 	"strings"
-	"vc/internal/verifier/apiv1"
-	"vc/pkg/model"
+	"github.com/SUNET/vc/internal/verifier/apiv1"
+	"github.com/SUNET/vc/pkg/model"
 
 	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/otel/codes"

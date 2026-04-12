@@ -6,9 +6,9 @@ import (
 	"net/url"
 	"strings"
 	"time"
-	"vc/pkg/cache"
-	"vc/pkg/model"
-	"vc/pkg/openid4vp"
+	"github.com/SUNET/vc/pkg/cache"
+	"github.com/SUNET/vc/pkg/model"
+	"github.com/SUNET/vc/pkg/openid4vp"
 
 	"github.com/google/uuid"
 	"github.com/lestrrat-go/jwx/v3/jwk"

@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"strings"
 
-	"vc/pkg/didcomm"
+	"github.com/SUNET/vc/pkg/didcomm"
 )
 
 // MessageProcessor processes incoming DIDComm messages.

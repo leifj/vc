@@ -6,7 +6,7 @@ import (
 	"context"
 	"fmt"
 
-	"vc/internal/apigw/apiv1"
+	"github.com/SUNET/vc/internal/apigw/apiv1"
 
 	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/otel/codes"

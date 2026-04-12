@@ -4,11 +4,11 @@ package main
 
 import (
 	"context"
-	"vc/internal/apigw/cache"
-	"vc/internal/apigw/db"
-	"vc/internal/apigw/httpserver"
-	"vc/pkg/logger"
-	"vc/pkg/model"
+	"github.com/SUNET/vc/internal/apigw/cache"
+	"github.com/SUNET/vc/internal/apigw/db"
+	"github.com/SUNET/vc/internal/apigw/httpserver"
+	"github.com/SUNET/vc/pkg/logger"
+	"github.com/SUNET/vc/pkg/model"
 )
 
 func initOIDCRPService(ctx context.Context, cfg *model.Cfg, _ *cache.Service, dbService *db.Service, log *logger.Log) (httpserver.OIDCRPService, error) {

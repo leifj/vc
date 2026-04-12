@@ -12,7 +12,7 @@ import (
 	"sort"
 	"strings"
 	"time"
-	"vc/pkg/jose"
+	"github.com/SUNET/vc/pkg/jose"
 
 	"github.com/google/uuid"
 	"golang.org/x/crypto/sha3"

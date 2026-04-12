@@ -17,8 +17,8 @@ import (
 	"testing"
 	"time"
 
-	"vc/pkg/vc20/credential"
-	"vc/pkg/vc20/crypto/eddsa"
+	"github.com/SUNET/vc/pkg/vc20/credential"
+	"github.com/SUNET/vc/pkg/vc20/crypto/eddsa"
 
 	"github.com/sirosfoundation/go-trust/pkg/testserver"
 )

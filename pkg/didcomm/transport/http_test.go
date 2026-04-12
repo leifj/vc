@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"vc/pkg/didcomm"
+	"github.com/SUNET/vc/pkg/didcomm"
 )
 
 func TestHTTPClient_Send(t *testing.T) {

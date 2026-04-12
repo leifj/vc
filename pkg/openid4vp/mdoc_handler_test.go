@@ -4,7 +4,7 @@ import (
 	"encoding/base64"
 	"testing"
 
-	"vc/pkg/mdoc"
+	"github.com/SUNET/vc/pkg/mdoc"
 
 	"github.com/fxamacker/cbor/v2"
 )

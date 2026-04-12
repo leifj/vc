@@ -8,7 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"vc/pkg/didcomm/message"
+	"github.com/SUNET/vc/pkg/didcomm/message"
 )
 
 // CredentialFinder provides access to stored credentials for presentation.

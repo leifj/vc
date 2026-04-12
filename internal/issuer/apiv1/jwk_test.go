@@ -2,7 +2,7 @@ package apiv1
 
 import (
 	"testing"
-	"vc/pkg/logger"
+	"github.com/SUNET/vc/pkg/logger"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/go-cmp/cmp"

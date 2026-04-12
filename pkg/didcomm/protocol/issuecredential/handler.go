@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"sync"
 
-	"vc/pkg/didcomm/message"
+	"github.com/SUNET/vc/pkg/didcomm/message"
 )
 
 // CredentialIssuer creates and signs credentials.

@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"vc/pkg/sdjwtvc"
+	"github.com/SUNET/vc/pkg/sdjwtvc"
 )
 
 func TestNewSDJWTHandler(t *testing.T) {
