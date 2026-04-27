@@ -139,11 +139,13 @@ func (c *Client) VerificationDirectPost(ctx context.Context, req *VerificationDi
 	credentialCaches := make([]sdjwtvc.CredentialCache, 0, len(authCtx.Scopes))
 
 	for _, scope := range authCtx.Scopes {
-		vpToken, ok := vpResponse.VPToken[scope]
-		if !ok {
+		// Per OID4VP 1.0 spec §8.1, vp_token values are arrays of presentations
+		vpTokens, ok := vpResponse.VPToken[scope]
+		if !ok || len(vpTokens) == 0 {
 			c.log.Error(nil, "VP token not found for scope", "scope", scope)
 			return nil, fmt.Errorf("VP token not found for scope: %s", scope)
 		}
+		vpToken := vpTokens[0]
 
 		responseParams := &openid4vp.ResponseParameters{}
 		responseParams.State = vpResponse.State
