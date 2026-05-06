@@ -1,4 +1,5 @@
 {
+  "vct": "urn:eudi:pid:arf-1.5:1",
   "name": "Example ARF 1.5 PID SD-JWT VCTM",
   "extends#integrity": "sha256-h0D1xX0uZ5r3O8b8h3T6lKXJ7Q1Q6f1Y5jv3F4y7gXU=",
   "description": "Example PID SD-JWT Verifiable Credential Type Metadata, based on ietf-oauth-sd-jwt-vc (draft 09), using a single language tag (en-US). Adheres to PID Rulebook ARF 1.5 (urn:eu.europa.ec.eudi:pid:1).",
@@ -11,14 +12,14 @@
       "rendering": {
          "simple": {
           "logo": {
-            "uri": "https://demo-issuer.wwwallet.org/public/creds/pid/person-identification-data-svg-example-01.svg",
-            "uri#integrity": "sha256-037rNwIiS/qeKc16yxy3xJlAYYFGul1wJAcGjXjDVLw="
+            "uri": "https://raw.githubusercontent.com/SUNET/vc/main/images/pid_v1.svg",
+            "uri#integrity": "sha256-8sf+BoRZNZTJXhdrhDUviKsOi0WHMeRDcWi7b9l3phw="
           }
         },
         "svg_templates": [
           {
-            "uri": "https://demo-issuer.wwwallet.org/public/creds/pid/person-identification-data-svg-example-01.svg",
-            "uri#integrity": "sha256-037rNwIiS/qeKc16yxy3xJlAYYFGul1wJAcGjXjDVLw=",
+            "uri": "https://raw.githubusercontent.com/SUNET/vc/main/images/pid_v1.svg",
+            "uri#integrity": "sha256-8sf+BoRZNZTJXhdrhDUviKsOi0WHMeRDcWi7b9l3phw=",
             "properties": {
               "orientation": "landscape",
               "color_scheme": "light",

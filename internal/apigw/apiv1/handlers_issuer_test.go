@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"testing"
 	"time"
-	"github.com/SUNET/vc/internal/apigw/db"
 	"github.com/SUNET/vc/internal/gen/issuer/apiv1_issuer"
 	"github.com/SUNET/vc/pkg/cache"
 	"github.com/SUNET/vc/pkg/logger"
@@ -43,7 +42,7 @@ type mockDatastoreColl struct {
 	err      error
 }
 
-func (m *mockDatastoreColl) GetDocumentWithIdentity(ctx context.Context, query *db.GetDocumentQuery) (*model.CompleteDocument, error) {
+func (m *mockDatastoreColl) GetDocument(ctx context.Context, authenticSource, documentID string) (*model.CompleteDocument, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -223,7 +222,7 @@ func TestVCICredentialOffer(t *testing.T) {
 	}
 
 	ctx := t.Context()
-	req := &openid4vci.CredentialOfferParameters{
+	req := &openid4vci.CredentialOfferParameters{ // #nosec G101
 		CredentialIssuer: "https://issuer.example.com",
 	}
 
@@ -276,15 +275,9 @@ func TestVCICredential_SuccessfulIssuance(t *testing.T) {
 	// Create mock authorization context matching the actual structure
 	mockAuthCtx := &mockAuthContextColl{
 		authContext: &cache.AuthorizationContext{
-			SessionID: "session-123",
-			Scopes:    []string{"pid"},
-			Identity: &model.Identity{
-				AuthenticSourcePersonID: "test-identity-123",
-				GivenName:               "John",
-				FamilyName:              "Doe",
-				BirthDate:               "1990-01-01",
-				Schema:                  &model.IdentitySchema{},
-			},
+			SessionID:  "session-123",
+			Scopes:     []string{"pid"},
+			Identifier: "test-identity-123",
 			Token: &cache.Token{
 				AccessToken: accessToken,
 				ExpiresAt:   time.Now().Add(time.Hour).Unix(),
@@ -312,53 +305,31 @@ func TestVCICredential_SuccessfulIssuance(t *testing.T) {
 	mockDoc := &mockDatastoreColl{
 		document: &model.CompleteDocument{
 			Meta: &model.MetaData{
-				VCT: model.CredentialTypeUrnEudiPid1,
+				AuthenticSource: "SUNET",
+				Scope:           "pid",
+				DocumentID:      "test-doc-id",
 			},
 			DocumentData: map[string]any{
 				"sub":         "123",
 				"given_name":  "John",
 				"family_name": "Doe",
 			},
-			Identities: []model.Identity{
-				{
-					AuthenticSourcePersonID: "test-identity-123",
-					GivenName:               "John",
-					FamilyName:              "Doe",
-					BirthDate:               "1990-01-01",
-					Schema:                  &model.IdentitySchema{},
-				},
-			},
-			DocumentDisplay: &model.DocumentDisplay{
-				Version: "1.0.0",
-				Type:    "secure",
-				DescriptionStructured: map[string]any{
-					"en": "Personal ID",
-				},
-			},
-			DocumentDataVersion: "1.0.0",
+			IdentityMappingIDs: []string{"test-identity-123"},
 		},
 	}
 
 	// Verify mock document retrieval
-	doc, err := mockDoc.GetDocumentWithIdentity(ctx, &db.GetDocumentQuery{
-		Identity: &model.Identity{
-			AuthenticSourcePersonID: "test-identity-123",
-			GivenName:               "John",
-			FamilyName:              "Doe",
-			BirthDate:               "1990-01-01",
-			Schema:                  &model.IdentitySchema{},
-		},
-	})
+	doc, err := mockDoc.GetDocument(ctx, "SUNET", "test-doc-id")
 	require.NoError(t, err)
 	assert.NotNil(t, doc)
-	assert.Equal(t, model.CredentialTypeUrnEudiPid1, doc.Meta.VCT)
+	assert.Equal(t, "pid", doc.Meta.Scope)
 	assert.Equal(t, "John", doc.DocumentData["given_name"])
 
 	// Create mock issuer client that returns a credential
 	mockIssuer := &mockIssuerClient{
 		reply: &apiv1_issuer.MakeSDJWTReply{
 			Credentials: []*apiv1_issuer.Credential{
-				{
+				{ // #nosec G101
 					Credential: "eyJhbGciOiJFUzI1NiIsInR5cCI6InZjK3NkLWp3dCJ9.eyJzdWIiOiIxMjMiLCJnaXZlbl9uYW1lIjoiSm9obiIsImZhbWlseV9uYW1lIjoiRG9lIn0.signature",
 				},
 			},
@@ -390,7 +361,7 @@ func TestVCICredential_SuccessfulIssuance(t *testing.T) {
 	assert.Contains(t, issuerResp.Credentials[0].Credential, "eyJ", "Should be a JWT")
 
 	// Build credential request matching the actual structure
-	req := &openid4vci.CredentialRequest{
+	req := &openid4vci.CredentialRequest{ // #nosec G101
 		DPoP:          dpopJWT,
 		Authorization: "DPoP " + accessToken,
 		Proofs: &openid4vci.Proofs{

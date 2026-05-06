@@ -4,62 +4,15 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"strings"
+
 	"github.com/SUNET/vc/pkg/cache"
 	"github.com/SUNET/vc/pkg/model"
 	"github.com/SUNET/vc/pkg/sdjwtvc"
 	"github.com/SUNET/vc/pkg/vcclient"
-
-	"golang.org/x/crypto/bcrypt"
 )
 
-func (c *Client) AddPIDUser(ctx context.Context, req *vcclient.AddPIDRequest) error {
-	// store user and password in the database before document is saved - to check constraints that the user not already exists
-	passwordHash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
-	if err != nil {
-		return err
-	}
-	err = c.usersStore.Save(ctx, &model.OAuthUsers{
-		Username:        req.Username,
-		Password:        string(passwordHash),
-		Identity:        req.Identity,
-		AuthenticSource: req.Meta.AuthenticSource,
-	})
-	if err != nil {
-		c.log.Error(err, "failed to save user")
-		return err
-	}
-
-	return nil
-}
-
-func (c *Client) LoginPIDUser(ctx context.Context, req *vcclient.LoginPIDUserRequest) error {
-	username := strings.ToLower(req.Username)
-
-	c.log.Debug("LoginPIDUser called", "username", username)
-	user, err := c.usersStore.GetUser(ctx, username)
-	if err != nil {
-		return fmt.Errorf("username %s not found", username)
-	}
-
-	if err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
-		return fmt.Errorf("password mismatch for username %s", username)
-	}
-
-	update := &cache.AuthorizationContext{
-		Identity:        user.Identity,
-		AuthenticSource: user.AuthenticSource,
-	}
-	// Update the authorization with the user identity
-	if err := c.cacheService.AuthContext.AddIdentity(ctx, &cache.AuthorizationContext{RequestURI: req.RequestURI}, update); err != nil {
-		c.log.Error(err, "failed to add identity to authorization context")
-		return err
-	}
-
-	return nil
-
-}
-
+// UserAuthenticSourceLookup resolves which authentic sources are available for a session,
+// or sets the selected authentic source on the authorization context.
 func (c *Client) UserAuthenticSourceLookup(ctx context.Context, req *vcclient.UserAuthenticSourceLookupRequest) (*vcclient.UserAuthenticSourceLookupReply, error) {
 	c.log.Debug("UserAuthenticSource called")
 
@@ -102,6 +55,10 @@ func (c *Client) UserAuthenticSourceLookup(ctx context.Context, req *vcclient.Us
 	return nil, nil
 }
 
+// UserLookup resolves the authenticated user's displayable claims for the credential preview (SVG template).
+// It retrieves data differently depending on the auth provider: from the verifier session cache for OpenID4VP,
+// or from the VCI session cache for SAML/OIDC.
+// After collecting the claims it marks the authorization context as consented and returns the wallet redirect URL.
 func (c *Client) UserLookup(ctx context.Context, req *vcclient.UserLookupRequest) (*vcclient.UserLookupReply, error) {
 	c.log.Debug("UserLookup called")
 
@@ -112,7 +69,7 @@ func (c *Client) UserLookup(ctx context.Context, req *vcclient.UserLookupRequest
 		c.log.Error(err, "failed to get authorization for user", "request_uri", req.RequestURI)
 	}
 
-	c.log.Debug("LoginPIDUser", "auth", authorizationContext)
+	c.log.Debug("UserLookup", "auth", authorizationContext)
 
 	redirectURL, err := url.Parse(authorizationContext.WalletURI)
 	if err != nil {
@@ -124,34 +81,8 @@ func (c *Client) UserLookup(ctx context.Context, req *vcclient.UserLookupRequest
 
 	svgTemplateClaims := map[string]vcclient.SVGClaim{}
 
-	switch req.AuthMethod {
-	case model.AuthMethodBasic:
-		user, err := c.usersStore.GetUser(ctx, strings.ToLower(req.Username))
-		if err != nil {
-			c.log.Error(err, "failed to get user", "username", strings.ToLower(req.Username))
-			return nil, fmt.Errorf("user %s not found: %w", strings.ToLower(req.Username), err)
-		}
-
-		svgTemplateClaims = map[string]vcclient.SVGClaim{
-			"given_name": {
-				Label: "Given name",
-				Value: user.Identity.GivenName,
-			},
-			"family_name": {
-				Label: "Family name",
-				Value: user.Identity.FamilyName,
-			},
-			"birth_date": {
-				Label: "Birth date",
-				Value: user.Identity.BirthDate,
-			},
-			"expiry_date": {
-				Label: "Expiry date",
-				Value: user.Identity.ExpiryDate,
-			},
-		}
-
-	case model.AuthMethodOpenID4VP:
+	switch req.AuthProvider {
+	case model.AuthProviderOpenID4VP:
 		authorizationContext, err := c.cacheService.AuthContext.Get(ctx, &cache.AuthorizationContext{VerifierResponseCode: req.ResponseCode})
 		if err != nil {
 			c.log.Error(err, "failed to get authorization context")
@@ -211,7 +142,7 @@ func (c *Client) UserLookup(ctx context.Context, req *vcclient.UserLookupRequest
 			}
 		}
 
-	case model.AuthMethodSAML, model.AuthMethodOIDC:
+	case model.AuthProviderSAML, model.AuthProviderOIDC:
 		// For SAML/OIDC, documents are stored in the VCI session cache by the
 		// ACS/callback handlers, keyed by the authorization context's session ID.
 		// No verifier response_code lookup is needed — we use the session ID directly.
@@ -246,7 +177,7 @@ func (c *Client) UserLookup(ctx context.Context, req *vcclient.UserLookupRequest
 
 		if len(claimValues) == 0 && len(jsonPaths.Displayable) > 0 {
 			// Log diagnostic info when JSONPath extraction finds nothing.
-			// This typically means the credential_mappings don't produce the
+			// This typically means the attribute_mappings don't produce the
 			// claim keys expected by the VCTM (check svg_id / path alignment).
 			docKeys := make([]string, 0, len(doc.DocumentData))
 			for k := range doc.DocumentData {
@@ -292,14 +223,14 @@ func (c *Client) UserLookup(ctx context.Context, req *vcclient.UserLookupRequest
 		}
 
 	default:
-		return nil, fmt.Errorf("unsupported auth method for user lookup: %s", req.AuthMethod)
+		return nil, fmt.Errorf("unsupported auth method for user lookup: %s", req.AuthProvider)
 	}
 
 	c.log.Debug("lookupUser", "svgTemplateClaims", svgTemplateClaims)
 
 	if err := c.cacheService.AuthContext.Consent(ctx, &cache.AuthorizationContext{RequestURI: req.RequestURI}); err != nil {
-		c.log.Error(err, "failed to consent for user", "username", req.Username)
-		return nil, fmt.Errorf("failed to consent for user %s: %w", req.Username, err)
+		c.log.Error(err, "failed to consent for user")
+		return nil, fmt.Errorf("failed to consent: %w", err)
 	}
 
 	reply := &vcclient.UserLookupReply{

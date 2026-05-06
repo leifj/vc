@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"time"
+
 	"github.com/SUNET/vc/internal/apigw/cache"
 	"github.com/SUNET/vc/internal/apigw/db"
 	"github.com/SUNET/vc/internal/gen/issuer/apiv1_issuer"
@@ -34,9 +35,9 @@ type Client struct {
 	tracer *trace.Tracer
 
 	// database collections
-	usersStore           db.UsersStore
 	credentialOfferStore db.CredentialOfferStore
 	datastoreStore       db.DatastoreStore
+	identityMappingStore db.IdentityMappingStore
 
 	// gRPC clients
 	issuerClient   apiv1_issuer.IssuerServiceClient
@@ -61,9 +62,9 @@ func New(ctx context.Context, db *db.Service, cacheService *cache.Service, trace
 	c := &Client{
 		cfg:                           cfg,
 		db:                            db,
-		usersStore:                    db.VCUsersColl,
-		credentialOfferStore:          db.VCCredentialOfferColl,
-		datastoreStore:                db.VCDatastoreColl,
+		credentialOfferStore:          db.CredentialOfferColl,
+		datastoreStore:                db.DatastoreColl,
+		identityMappingStore:          db.IdentityMappingsColl,
 		log:                           log.New("apiv1"),
 		tracer:                        tracer,
 		CredentialOfferLookupMetadata: &CredentialOfferLookupMetadata{},
@@ -74,13 +75,13 @@ func New(ctx context.Context, db *db.Service, cacheService *cache.Service, trace
 
 	// Generate issuer metadata at runtime (depends on credential constructors being loaded)
 	// Unsigned metadata will be signed on-demand in the handler for freshness
-	c.issuerMetadata, err = c.cfg.APIGW.IssuerMetadata.Generate(ctx, c.cfg.APIGW.PublicURL, cfg.Common.CredentialConstructor)
+	c.issuerMetadata, err = c.cfg.APIGW.IssuerMetadata.Generate(ctx, c.cfg.APIGW.PublicURL, cfg.Common.CredentialMetadata)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate issuer metadata: %w", err)
 	}
 
 	// Load OAuth2 metadata from configuration (unsigned, will be signed on-demand if needed)
-	c.oauth2Metadata = c.cfg.APIGW.OauthServer.GenerateMetadata(ctx, c.cfg.APIGW.PublicURL)
+	c.oauth2Metadata = c.cfg.APIGW.Delivery.OpenID4VCI.GenerateMetadata(ctx, c.cfg.APIGW.PublicURL)
 
 	// Load PKI signing key and chain for metadata signing
 	c.pkiSigner, c.pkiSigningCert, c.pkiSignerChain, err = pki.LoadSigner(c.cfg.APIGW.KeyConfig)
@@ -187,7 +188,7 @@ func (c *Client) CreateCredentialOfferLookupMetadata(ctx context.Context) error 
 
 	credentialTypes := map[string]CredentialOfferTypeData{}
 
-	for scope, credential := range c.cfg.Common.CredentialConstructor {
+	for scope, credential := range c.cfg.Common.CredentialMetadata {
 		vctm := credential.GetVCTM()
 		if vctm == nil {
 			c.log.Warn("credential constructor has nil VCTM; failing CreateCredentialOfferLookupMetadata", "scope", scope)
@@ -201,7 +202,7 @@ func (c *Client) CreateCredentialOfferLookupMetadata(ctx context.Context) error 
 	}
 
 	wallets := map[string]string{}
-	for key, wallet := range c.cfg.APIGW.CredentialOffers.Wallets {
+	for key, wallet := range c.cfg.APIGW.Delivery.CredentialOffers.Wallets {
 		wallets[key] = wallet.Label
 	}
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+
 	"github.com/SUNET/vc/pkg/helpers"
 	"github.com/SUNET/vc/pkg/logger"
 	"github.com/SUNET/vc/pkg/model"
@@ -53,8 +54,8 @@ func (s *serverHandler) RegEndpoint(ctx context.Context, rg *gin.RouterGroup, me
 			return
 		}
 
-		// Skip rendering if response is nil (e.g., redirect was already handled)
 		if res == nil {
+			c.Status(defaultStatus)
 			return
 		}
 

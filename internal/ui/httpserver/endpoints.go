@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"time"
+
 	"github.com/SUNET/vc/internal/gen/status/apiv1_status"
 	"github.com/SUNET/vc/internal/ui/apiv1"
 	"github.com/SUNET/vc/pkg/model"
@@ -200,18 +201,5 @@ func (s *Service) endpointDeleteDocument(ctx context.Context, c *gin.Context) (a
 	if err != nil {
 		return nil, err
 	}
-	return nil, nil
-}
-
-func (s *Service) endpointAddPIDUser(ctx context.Context, g *gin.Context) (any, error) {
-	request := &vcclient.AddPIDRequest{}
-	if err := s.httpHelpers.Binding.Request(ctx, g, request); err != nil {
-		return nil, err
-	}
-
-	if err := s.apiv1.AddPIDUser(ctx, request); err != nil {
-		return nil, err
-	}
-
 	return nil, nil
 }

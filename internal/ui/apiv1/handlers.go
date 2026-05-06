@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"time"
+
 	"github.com/SUNET/vc/internal/gen/status/apiv1_status"
 	"github.com/SUNET/vc/pkg/model"
 	"github.com/SUNET/vc/pkg/vcclient"
@@ -61,16 +62,6 @@ func (c *Client) Upload(ctx context.Context, req *vcclient.UploadRequest) error 
 		return err
 	}
 	return nil
-}
-
-// CredentialRequest is the request for the Credential endpoint
-type CredentialRequest struct {
-	AuthenticSource string          `json:"authentic_source" validate:"required"`
-	Identity        *model.Identity `json:"identity" validate:"required"`
-	VCT             string          `json:"vct" validate:"required"`
-	CredentialType  string          `json:"credential_type" validate:"required"`
-	CollectID       string          `json:"collect_id" validate:"required"`
-	JWK             map[string]any  `json:"jwk"`
 }
 
 func (c *Client) GetDocument(ctx context.Context, req *vcclient.DocumentGetQuery) (*model.Document, error) {
@@ -145,14 +136,5 @@ func (c *Client) DeleteDocument(ctx context.Context, req *vcclient.DocumentDelet
 	if err != nil {
 		return err
 	}
-	return nil
-}
-
-func (c *Client) AddPIDUser(ctx context.Context, req *vcclient.AddPIDRequest) error {
-	_, err := c.vcClient.APIGW.User.AddPID(ctx, req)
-	if err != nil {
-		return err
-	}
-
 	return nil
 }

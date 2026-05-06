@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
+
 	"github.com/SUNET/vc/internal/apigw/db"
 	"github.com/SUNET/vc/internal/gen/issuer/apiv1_issuer"
 	"github.com/SUNET/vc/internal/gen/registry/apiv1_registry"
@@ -18,6 +20,39 @@ import (
 	"github.com/SUNET/vc/pkg/openid4vci"
 )
 
+// ResolveIdentifier resolves an identifier string from authentication claims.
+// It first checks for an explicit authentic_source_person_id claim.
+// If none is found, it attempts an identity mapping lookup using the available
+// attributes against the configured authentic source.
+func (c *Client) ResolveIdentifier(ctx context.Context, authenticSource string, claims map[string]any) (string, error) {
+	// Path 1: explicit identifier from claims
+	if v, ok := claims["authentic_source_person_id"].(string); ok && v != "" {
+		c.log.Debug("ResolveIdentifier: direct identifier found", "value", v)
+		return v, nil
+	}
+
+	// Path 2: resolve from attributes via identity mapping
+	attrs := make(map[string]string)
+	for _, key := range []string{"family_name", "given_name", "birth_date"} {
+		if v, ok := claims[key].(string); ok && v != "" {
+			attrs[key] = v
+		}
+	}
+	if len(attrs) == 0 {
+		return "", errors.New("no identifier claim or identity attributes found in claims")
+	}
+
+	personID, err := c.identityMappingStore.ResolveMapping(ctx, &db.ResolveMappingQuery{
+		AuthenticSource: authenticSource,
+		Attributes:      attrs,
+	})
+	if err != nil {
+		return "", fmt.Errorf("identity mapping resolution failed: %w", err)
+	}
+	c.log.Debug("ResolveIdentifier: resolved via identity mapping", "identifier", personID)
+	return personID, nil
+}
+
 // StoreVCIDocuments stores transformed credential documents in the VCI session cache.
 // This is used by external auth flows (SAML/OIDC) that are integrated into the
 // OpenID4VCI pipeline. The documents are stored keyed by the VCI session ID so they
@@ -25,6 +60,55 @@ import (
 func (c *Client) StoreVCIDocuments(ctx context.Context, sessionID string, docs map[string]*model.CompleteDocument) error {
 	c.cacheService.Document.Set(ctx, sessionID, docs)
 	c.log.Debug("VCI documents stored from external auth", "session_id", sessionID, "doc_count", len(docs))
+	return nil
+}
+
+// LookupDatastoreByIdentity queries the datastore for documents matching the
+// given identity claims and scope, then stores them in the VCI session cache.
+// Used when a datastore credential is authenticated via SAML/OIDC — the
+// identity extracted from the assertion is used to find the pre-loaded document.
+func (c *Client) LookupDatastoreByIdentity(ctx context.Context, sessionID, scope, authenticSource string, claims map[string]any, dsCred *model.DatastoreScope) error {
+	identityClaims := dsCred.ExtractIdentityClaims(claims)
+
+	// Resolve the person identifier — uses authentic_source_person_id directly
+	// when present in the extracted claims, otherwise falls back to identity
+	// mapping (given_name, family_name, birth_date → authentic_source_person_id).
+	claimsAny := make(map[string]any, len(identityClaims))
+	for k, v := range identityClaims {
+		claimsAny[k] = v
+	}
+	identityMappingID, err := c.ResolveIdentifier(ctx, authenticSource, claimsAny)
+	if err != nil {
+		return fmt.Errorf("failed to resolve identity for scope %q: %w", scope, err)
+	}
+
+	c.log.Debug("LookupDatastoreByIdentity", "scope", scope, "identity_mapping_id", identityMappingID)
+
+	docs, err := c.datastoreStore.GetByIdentity(ctx, scope, identityMappingID)
+	if err != nil {
+		return fmt.Errorf("datastore lookup failed for scope %q: %w", scope, err)
+	}
+	if len(docs) == 0 {
+		return fmt.Errorf("no documents found in datastore for scope %q with the provided identity", scope)
+	}
+
+	// Filter out expired documents
+	now := time.Now().UTC()
+	for key, doc := range docs {
+		if doc.Meta.ValidNotAfter != nil && now.After(*doc.Meta.ValidNotAfter) {
+			c.log.Info("Skipping expired document", "document_id", doc.Meta.DocumentID, "valid_not_after", doc.Meta.ValidNotAfter)
+			delete(docs, key)
+		}
+	}
+
+	// If all documents are expired, return an error to avoid caching and issuing from expired data
+	if len(docs) == 0 {
+		return fmt.Errorf("all documents expired for scope %q", scope)
+	}
+
+	c.cacheService.Document.Set(ctx, sessionID, docs)
+	c.log.Info("Datastore documents cached for VCI session",
+		"session_id", sessionID, "scope", scope, "doc_count", len(docs))
 	return nil
 }
 
@@ -68,24 +152,21 @@ func (c *Client) VCINonce(ctx context.Context) (*openid4vci.NonceResponse, error
 //	@Param			req	body		openid4vci.CredentialRequest	true	" "
 //	@Router			/credential [post]
 func (c *Client) VCICredential(ctx context.Context, req *openid4vci.CredentialRequest) (*openid4vci.CredentialResponse, error) {
-	jti, err := oauth2.ExtractJTI(req.DPoP)
-	if err != nil {
-		c.log.Error(err, "failed to extract JTI from DPoP")
-		return nil, err
-	}
-
-	if _, hasJTI := c.cacheService.DPopJTI.Get(ctx, jti); hasJTI {
-		c.log.Error(nil, "DPoP JTI replay detected", "jti", jti)
-		return nil, oauth2.ErrJTIReplay
-	}
-
+	c.log.Debug("VCICredential request", "credential_identifier", req.CredentialIdentifier, "credential_configuration_id", req.CredentialConfigurationID)
+	// Validate DPoP JWT signature and claims first, before checking JTI replay.
+	// This prevents attackers from poisoning the JTI cache with forged tokens.
 	dpop, err := oauth2.ValidateAndParseDPoPJWT(req.DPoP)
 	if err != nil {
 		c.log.Error(err, "failed to validate DPoP JWT")
 		return nil, err
 	}
 
-	c.cacheService.DPopJTI.Set(ctx, jti, true)
+	if _, hasJTI := c.cacheService.DPopJTI.Get(ctx, dpop.JTI); hasJTI {
+		c.log.Error(nil, "DPoP JTI replay detected", "jti", dpop.JTI)
+		return nil, oauth2.ErrJTIReplay
+	}
+
+	c.cacheService.DPopJTI.Set(ctx, dpop.JTI, true)
 
 	// Validate HTU matches credential endpoint
 	if dpop.HTU != c.issuerMetadata.CredentialEndpoint {
@@ -97,11 +178,11 @@ func (c *Client) VCICredential(ctx context.Context, req *openid4vci.CredentialRe
 		return nil, fmt.Errorf("invalid HTM in DPoP claims: expected POST, got %s", dpop.HTM)
 	}
 
-	if !dpop.IsAccessTokenDPoP(req.HashAuthorizeToken()) {
+	accessToken := strings.TrimPrefix(req.Authorization, "DPoP ")
+
+	if !dpop.IsAccessTokenDPoP(accessToken) {
 		return nil, errors.New("invalid DPoP token")
 	}
-
-	accessToken := strings.TrimPrefix(req.Authorization, "DPoP ")
 
 	authContext, err := c.cacheService.AuthContext.GetWithAccessToken(ctx, accessToken)
 	if err != nil {
@@ -116,7 +197,7 @@ func (c *Client) VCICredential(ctx context.Context, req *openid4vci.CredentialRe
 	}
 
 	// Match a scope from the authorization context to a known credential constructor
-	scope, credentialConstructor, err := c.matchScope(authContext.Scopes)
+	scope, _, err := c.matchScope(authContext.Scopes)
 	if err != nil {
 		c.log.Error(err, "no matching scope in auth context")
 		return nil, err
@@ -124,27 +205,11 @@ func (c *Client) VCICredential(ctx context.Context, req *openid4vci.CredentialRe
 
 	document := &model.CompleteDocument{}
 
-	// Determine retrieval strategy based on auth method
-	// - "basic": Identity-based authentication → retrieve from datastore
-	// - Other methods (e.g., "openid4vp"): Session-based → retrieve from cache
-	authMethod := credentialConstructor.AuthMethod
-	switch authMethod {
-	case model.AuthMethodBasic:
-		// Basic auth: retrieve from datastore using identity
-		document, err = c.datastoreStore.GetDocumentWithIdentity(ctx, &db.GetDocumentQuery{
-			Meta: &model.MetaData{
-				AuthenticSource: authContext.AuthenticSource,
-				Scope:           scope,
-			},
-			Identity: authContext.Identity,
-		})
-		if err != nil {
-			return nil, err
-		}
-
-	default:
-		// Session-based auth methods (e.g., openid4vp): retrieve from session cache
-		// These credentials require presenting another credential for authentication
+	c.log.Debug("VCICredential: retrieving credential data", "auth_provider", authContext.AuthProvider, "scope", scope, "session_id", authContext.SessionID)
+	// Retrieve credential data based on the auth provider used during authorization
+	switch authContext.AuthProvider {
+	case model.AuthProviderOpenID4VP, model.AuthProviderSAML, model.AuthProviderOIDC:
+		// Session-based auth providers: retrieve from session cache
 		docs, ok := c.cacheService.Document.Get(ctx, authContext.SessionID)
 		if !ok || len(docs) == 0 {
 			c.log.Error(nil, "no documents found in cache for session", "session_id", authContext.SessionID)
@@ -160,6 +225,8 @@ func (c *Client) VCICredential(ctx context.Context, req *openid4vci.CredentialRe
 		if document == nil || document.DocumentData == nil {
 			return nil, errors.New("cached document is empty for session " + authContext.SessionID)
 		}
+	default:
+		return nil, fmt.Errorf("unsupported or missing auth provider: %q", authContext.AuthProvider)
 	}
 
 	documentData, err := json.Marshal(document.DocumentData)
@@ -192,17 +259,23 @@ func (c *Client) VCICredential(ctx context.Context, req *openid4vci.CredentialRe
 		return nil, err
 	}
 
+	// The authenticated identifier is required for registry
+	identifier := authContext.Identifier
+	if identifier == "" {
+		return nil, errors.New("no identifier in auth context")
+	}
+
 	// Branch based on requested credential format
 	switch format {
 	case "mso_mdoc":
-		return c.issueMDoc(ctx, scope, documentData, jwk, document)
+		return c.issueMDoc(ctx, scope, documentData, jwk, identifier)
 
 	case "vc+sd-jwt", "dc+sd-jwt":
-		return c.issueSDJWT(ctx, scope, documentData, jwk, document)
+		return c.issueSDJWT(ctx, scope, documentData, jwk, identifier)
 
 	case "ldp_vc", "vc+ld+json":
 		// W3C VC 2.0 Data Integrity credential
-		return c.issueVC20(ctx, scope, documentData, document, req)
+		return c.issueVC20(ctx, scope, documentData, identifier, req)
 
 	default:
 		c.log.Error(nil, "unsupported or missing credential format", "format", format)
@@ -211,9 +284,9 @@ func (c *Client) VCICredential(ctx context.Context, req *openid4vci.CredentialRe
 }
 
 // issueSDJWT issues an SD-JWT credential
-func (c *Client) issueSDJWT(ctx context.Context, scope string, documentData []byte, jwk *apiv1_issuer.Jwk, document *model.CompleteDocument) (*openid4vci.CredentialResponse, error) {
-	credentialConstructor := c.cfg.GetCredentialConstructor(scope)
-	if credentialConstructor == nil {
+func (c *Client) issueSDJWT(ctx context.Context, scope string, documentData []byte, jwk *apiv1_issuer.Jwk, identifier string) (*openid4vci.CredentialResponse, error) {
+	credMeta := c.cfg.GetCredentialMetadata(scope)
+	if credMeta == nil {
 		return nil, fmt.Errorf("unsupported scope: %s", scope)
 	}
 
@@ -221,8 +294,8 @@ func (c *Client) issueSDJWT(ctx context.Context, scope string, documentData []by
 		Scope:        scope,
 		DocumentData: documentData,
 		Jwk:          jwk,
-		Integrity:    credentialConstructor.GetIntegrity(),
-		Vctm:         credentialConstructor.GetVCTMRaw(),
+		Integrity:    credMeta.GetIntegrity(),
+		Vctm:         credMeta.GetVCTMRaw(),
 	})
 	if err != nil {
 		c.log.Error(err, "failed to call MakeSDJWT")
@@ -234,17 +307,15 @@ func (c *Client) issueSDJWT(ctx context.Context, scope string, documentData []by
 	}
 
 	// Save credential subject info to registry for status management
-	if len(document.Identities) > 0 {
-		identity := document.Identities[0]
+	if identifier != "" {
 		_, err = c.registryClient.SaveCredentialSubject(ctx, &apiv1_registry.SaveCredentialSubjectRequest{
-			FirstName:   identity.GivenName,
-			LastName:    identity.FamilyName,
-			DateOfBirth: identity.BirthDate,
-			Section:     reply.TokenStatusListSection,
-			Index:       reply.TokenStatusListIndex,
+			Identifier: identifier,
+			Section:    reply.TokenStatusListSection,
+			Index:      reply.TokenStatusListIndex,
 		})
 		if err != nil {
 			c.log.Error(err, "failed to save credential subject to registry")
+			return nil, fmt.Errorf("failed to save credential subject: %w", err)
 		}
 	}
 
@@ -265,7 +336,7 @@ func (c *Client) issueSDJWT(ctx context.Context, scope string, documentData []by
 }
 
 // issueMDoc issues an mDL/mDoc credential (ISO 18013-5)
-func (c *Client) issueMDoc(ctx context.Context, scope string, documentData []byte, jwk *apiv1_issuer.Jwk, document *model.CompleteDocument) (*openid4vci.CredentialResponse, error) {
+func (c *Client) issueMDoc(ctx context.Context, scope string, documentData []byte, jwk *apiv1_issuer.Jwk, identifier string) (*openid4vci.CredentialResponse, error) {
 	// Convert JWK to COSE key bytes for mDoc
 	deviceKeyBytes, err := convertJWKToCOSEKey(jwk)
 	if err != nil {
@@ -290,17 +361,15 @@ func (c *Client) issueMDoc(ctx context.Context, scope string, documentData []byt
 	}
 
 	// Save credential subject info to registry for status management
-	if len(document.Identities) > 0 && reply.StatusListSection > 0 {
-		identity := document.Identities[0]
+	if identifier != "" && reply.StatusListSection > 0 {
 		_, err = c.registryClient.SaveCredentialSubject(ctx, &apiv1_registry.SaveCredentialSubjectRequest{
-			FirstName:   identity.GivenName,
-			LastName:    identity.FamilyName,
-			DateOfBirth: identity.BirthDate,
-			Section:     reply.StatusListSection,
-			Index:       reply.StatusListIndex,
+			Identifier: identifier,
+			Section:    reply.StatusListSection,
+			Index:      reply.StatusListIndex,
 		})
 		if err != nil {
 			c.log.Error(err, "failed to save credential subject to registry")
+			return nil, fmt.Errorf("failed to save credential subject: %w", err)
 		}
 	}
 
@@ -319,7 +388,7 @@ func (c *Client) issueMDoc(ctx context.Context, scope string, documentData []byt
 }
 
 // issueVC20 issues a W3C VC 2.0 Data Integrity credential
-func (c *Client) issueVC20(ctx context.Context, scope string, documentData []byte, document *model.CompleteDocument, req *openid4vci.CredentialRequest) (*openid4vci.CredentialResponse, error) {
+func (c *Client) issueVC20(ctx context.Context, scope string, documentData []byte, identifier string, req *openid4vci.CredentialRequest) (*openid4vci.CredentialResponse, error) {
 	// Extract cryptosuite from credential configuration
 	var cryptosuite string
 	var mandatoryPointers []string
@@ -369,17 +438,15 @@ func (c *Client) issueVC20(ctx context.Context, scope string, documentData []byt
 	}
 
 	// Save credential subject info to registry for status management
-	if len(document.Identities) > 0 && reply.StatusListSection > 0 {
-		identity := document.Identities[0]
+	if identifier != "" && reply.StatusListSection > 0 {
 		_, err = c.registryClient.SaveCredentialSubject(ctx, &apiv1_registry.SaveCredentialSubjectRequest{
-			FirstName:   identity.GivenName,
-			LastName:    identity.FamilyName,
-			DateOfBirth: identity.BirthDate,
-			Section:     reply.StatusListSection,
-			Index:       reply.StatusListIndex,
+			Identifier: identifier,
+			Section:    reply.StatusListSection,
+			Index:      reply.StatusListIndex,
 		})
 		if err != nil {
 			c.log.Error(err, "failed to save credential subject to registry")
+			return nil, fmt.Errorf("failed to save credential subject: %w", err)
 		}
 	}
 
@@ -451,8 +518,6 @@ func (c *Client) VCINotification(ctx context.Context, req *openid4vci.Notificati
 
 // VCIMetadata https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-credential-issuer-metadata-p
 func (c *Client) VCIMetadata(ctx context.Context) (*openid4vci.CredentialIssuerMetadataParameters, error) {
-	c.log.Debug("metadata request")
-
 	if err := helpers.Check(ctx, c.cfg, c.issuerMetadata, c.log); err != nil {
 		c.log.Error(err, "failed to check metadata")
 		return nil, err

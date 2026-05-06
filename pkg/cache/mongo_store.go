@@ -33,35 +33,35 @@ func NewMongoStore(ctx context.Context, client *mongo.Client, database, collecti
 			Options: options.Index().SetUnique(true),
 		},
 		{
-			Keys: bson.D{{Key: "request_uri", Value: 1}},
+			Keys:    bson.D{{Key: "request_uri", Value: 1}},
 			Options: options.Index().SetSparse(true),
 		},
 		{
-			Keys: bson.D{{Key: "code", Value: 1}},
+			Keys:    bson.D{{Key: "code", Value: 1}},
 			Options: options.Index().SetSparse(true),
 		},
 		{
-			Keys: bson.D{{Key: "state", Value: 1}},
+			Keys:    bson.D{{Key: "state", Value: 1}},
 			Options: options.Index().SetSparse(true),
 		},
 		{
-			Keys: bson.D{{Key: "verifier_response_code", Value: 1}},
+			Keys:    bson.D{{Key: "verifier_response_code", Value: 1}},
 			Options: options.Index().SetSparse(true),
 		},
 		{
-			Keys: bson.D{{Key: "ephemeral_encryption_key_id", Value: 1}},
+			Keys:    bson.D{{Key: "ephemeral_encryption_key_id", Value: 1}},
 			Options: options.Index().SetSparse(true),
 		},
 		{
-			Keys: bson.D{{Key: "request_object_id", Value: 1}},
+			Keys:    bson.D{{Key: "request_object_id", Value: 1}},
 			Options: options.Index().SetSparse(true),
 		},
 		{
-			Keys: bson.D{{Key: "token.access_token", Value: 1}},
+			Keys:    bson.D{{Key: "token.access_token", Value: 1}},
 			Options: options.Index().SetSparse(true),
 		},
 		{
-			Keys: bson.D{{Key: "access_token", Value: 1}},
+			Keys:    bson.D{{Key: "access_token", Value: 1}},
 			Options: options.Index().SetSparse(true),
 		},
 		{
@@ -364,29 +364,21 @@ func (s *MongoStore) SetAuthenticSource(ctx context.Context, query *Authorizatio
 	return nil
 }
 
-// AddIdentity adds identity information to an authorization context.
-func (s *MongoStore) AddIdentity(ctx context.Context, query *AuthorizationContext, input *AuthorizationContext) error {
-	if query == nil {
-		return errors.New("query cannot be nil")
+// SetIdentifier sets the resolved identifier on an authorization context.
+func (s *MongoStore) SetIdentifier(ctx context.Context, query *AuthorizationContext, identifier string) error {
+	if identifier == "" {
+		return errors.New("identifier cannot be empty")
 	}
-	if input == nil || input.Identity == nil {
-		return errors.New("identity cannot be nil")
-	}
-
-	filter := s.buildFilter(query)
-	if filter == nil {
-		return errors.New("query must have sessionID, requestURI, or ephemeralEncryptionKeyID")
+	if query == nil || query.SessionID == "" {
+		return errors.New("session_id cannot be empty")
 	}
 
-	update := bson.M{"$set": bson.M{
-		"identity":         input.Identity,
-		"vct":              input.VCT,
-		"authentic_source": input.AuthenticSource,
-	}}
-
-	result, err := s.coll.UpdateOne(ctx, filter, update)
+	result, err := s.coll.UpdateOne(ctx,
+		bson.M{"session_id": query.SessionID},
+		bson.M{"$set": bson.M{"identifier": identifier}},
+	)
 	if err != nil {
-		return fmt.Errorf("failed to add identity: %w", err)
+		return fmt.Errorf("failed to set identifier: %w", err)
 	}
 	if result.MatchedCount == 0 {
 		return ErrNoDocuments

@@ -2,6 +2,7 @@ package httpserver
 
 import (
 	"context"
+
 	"github.com/SUNET/vc/internal/gen/status/apiv1_status"
 	"github.com/SUNET/vc/internal/ui/apiv1"
 	"github.com/SUNET/vc/pkg/model"
@@ -23,7 +24,6 @@ type Apiv1 interface {
 	Notification(ctx context.Context, reguest *vcclient.NotificationRequest) (*vcclient.NotificationReply, error)
 	SearchDocuments(ctx context.Context, request *model.SearchDocumentsRequest) (*model.SearchDocumentsReply, error)
 	DeleteDocument(ctx context.Context, request *vcclient.DocumentDeleteQuery) error
-	AddPIDUser(ctx context.Context, request *vcclient.AddPIDRequest) error
 
 	// mockas
 	HealthMockAS(ctx context.Context, request *apiv1_status.StatusRequest) (*apiv1_status.StatusReply, error)
