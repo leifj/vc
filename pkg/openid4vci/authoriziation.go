@@ -46,6 +46,11 @@ type PARRequest struct {
 	WalletIssuer string `json:"wallet_issuer" form:"wallet_issuer"`
 	UserHint     string `json:"user_hint" form:"user_hint"`
 	IssuingState string `json:"issuing_state" form:"issuing_state"`
+
+	// DynamicParams holds key-value parameters from the authentic source business system.
+	// These are used for template substitution in OIDC request parameters and for
+	// issuance policy evaluation.
+	DynamicParams map[string]string `json:"dynamic_params,omitempty" form:"dynamic_params"`
 }
 
 type ParResponse struct {
