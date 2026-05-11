@@ -59,6 +59,6 @@ jobs:
         run: |
           DOCKER_REGISTRY="${{ steps.lowercaser.outputs.registry_full_path }}"
           VERSION_LABEL="${{ steps.version_extractor.outputs.version_label }}"
-          make docker-build-gobuild "DOCKER_REGISTRY=${DOCKER_REGISTRY}" "VERSION=${VERSION_LABEL}"
+          make docker-build-gobuild
           make docker-build "DOCKER_REGISTRY=${DOCKER_REGISTRY}" "VERSION=${VERSION_LABEL}"
           make docker-push "DOCKER_REGISTRY=${DOCKER_REGISTRY}" "VERSION=${VERSION_LABEL}"
