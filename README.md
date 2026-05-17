@@ -51,7 +51,7 @@ The main configuration file is `config.yaml`. See [docs/CONFIGURATION.md](docs/C
 | **apigw**  | API Gateway with optional SAML and OIDC RP support for relying party integration |
 | **issuer** | Issues verifiable credentials via OpenID4VCI with VCTM schema validation  |
 | **verifier** | Verifies credential presentations via OpenID4VP, DCQL, and the W3C Digital Credentials API |
-| **registry** | Credential registry and status list management                          |
+| **registry** | Credential status list management (Token Status Lists for revocation — not to be confused with [registry-cli](https://github.com/sirosfoundation/registry-cli), which publishes credential *type metadata*) |
 | **mockas** | Mock Authorization Server for development and testing                     |
 | **ui**     | Web UI for credential issuance and presentation                           |
 
