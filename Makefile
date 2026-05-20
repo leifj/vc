@@ -19,9 +19,9 @@ BUILD_ARCH              := amd64
 BUILD_FLAGS             := -v
 
 # Services Configuration
-SERVICES                := verifier registry mockas apigw issuer ui
-WEB_SERVICES            := verifier ui
-WORKER_SERVICES         := registry mockas apigw issuer
+SERVICES                := verifier registry apigw issuer
+WEB_SERVICES            := verifier
+WORKER_SERVICES         := registry apigw issuer
 
 # Docker Configuration
 DOCKER_REGISTRY         := docker.sunet.se/iam_vc
@@ -41,10 +41,8 @@ PKCS11_TAG              := pkcs11
 BUILD_CONFIGS           := \
 	verifier:static: \
 	registry:static: \
-	mockas:static: \
 	apigw:static: \
 	issuer:static: \
-	ui:static: \
 	vc20-test-server:static:
 
 # ==============================================================================
@@ -56,7 +54,7 @@ BUILD_CONFIGS           := \
 	docker-build docker-build-% docker-push docker-push-% docker-push-issuer-hsm docker-tag docker-tag-% docker-pull docker-archive \
 	start stop restart clean_docker_images \
 	proto proto-% swagger swagger-% swagger-fmt \
-	check-protoc diagram install-tools clean-apt-cache vscode vendor-js \
+	check-protoc diagram install-tools clean-apt-cache vscode vendor-js update \
 	gosec staticcheck vulncheck \
 	test-pkcs11 \
 	test-wallet test-wallet-vci test-wallet-vp test-wallet-e2e test-wallet-stack \
@@ -431,7 +429,7 @@ proto: proto-status proto-registry proto-issuer ## Generate all protobuf files
 
 PROTO_OPTS := --proto_path=./proto/ --go-grpc_opt=module=vc --go-grpc_out=. --go_opt=module=vc --go_out=.
 
-# Catch-all for services without explicit proto targets (e.g. apigw, mockas)
+# Catch-all for services without explicit proto targets (e.g. apigw)
 proto-%:
 	@echo "No protobuf for $*"
 
@@ -455,7 +453,7 @@ swagger-fmt: ## Format Swagger annotations
 
 SWAGGER_OPTS := --parseGoList=false --packageName docs
 
-# Catch-all for services without explicit swagger targets (e.g. mockas)
+# Catch-all for services without explicit swagger targets
 swagger-%:
 	@echo "No swagger docs for $*"
 	@mkdir -p docs
@@ -610,6 +608,17 @@ vendor-js: ## Download vendored JS/CSS dependencies
 	curl -sL -o $(VERIFIER_STATIC)/json-viewer.esm.js \
 		"https://cdn.jsdelivr.net/npm/@andypf/json-viewer@$(JSON_VIEWER_VERSION)/+esm"
 	$(info Done — vendored JS/CSS dependencies updated)
+
+# ==============================================================================
+# Go Dependency Management
+# ==============================================================================
+
+update: ## Update all Go dependencies to their latest versions and re-vendor
+	$(info Updating all Go dependencies...)
+	GOFLAGS="" go get -u ./...
+	GOFLAGS="" go mod tidy
+	go mod vendor
+	$(info Done — all Go dependencies updated and vendor refreshed)
 
 # ==============================================================================
 # Development Tools

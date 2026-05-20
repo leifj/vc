@@ -173,6 +173,41 @@ func (m *memoryDatastoreStore) DeleteIdentity(_ context.Context, query *db.Delet
 	return nil
 }
 
+func (m *memoryDatastoreStore) Search(_ context.Context, _ *db.SearchDocumentsQuery) ([]*model.CompleteDocument, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	var result []*model.CompleteDocument
+	for _, doc := range m.docs {
+		result = append(result, doc)
+	}
+	return result, nil
+}
+
+func (m *memoryDatastoreStore) SaveMany(ctx context.Context, docs []*model.CompleteDocument) error {
+	for _, doc := range docs {
+		if err := m.Save(ctx, doc); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (m *memoryDatastoreStore) ListAuthenticSources(_ context.Context) ([]string, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	seen := map[string]struct{}{}
+	for _, doc := range m.docs {
+		if doc.Meta.AuthenticSource != "" {
+			seen[doc.Meta.AuthenticSource] = struct{}{}
+		}
+	}
+	result := make([]string, 0, len(seen))
+	for s := range seen {
+		result = append(result, s)
+	}
+	return result, nil
+}
+
 // memoryIdentityMappingStore is an in-memory implementation of db.IdentityMappingStore for testing.
 type memoryIdentityMappingStore struct {
 	mu       sync.RWMutex
@@ -265,38 +300,21 @@ func (m *memoryIdentityMappingStore) DeleteMapping(_ context.Context, query *db.
 	return nil
 }
 
-// memoryCredentialOfferStore is an in-memory implementation of db.CredentialOfferStore for testing.
-type memoryCredentialOfferStore struct {
-	mu    sync.RWMutex
-	offers map[string]*db.CredentialOfferDocument
-}
-
-func newMemoryCredentialOfferStore() *memoryCredentialOfferStore {
-	return &memoryCredentialOfferStore{
-		offers: make(map[string]*db.CredentialOfferDocument),
-	}
-}
-
-func (m *memoryCredentialOfferStore) Save(_ context.Context, doc *db.CredentialOfferDocument) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.offers[doc.UUID] = doc
-	return nil
-}
-
-func (m *memoryCredentialOfferStore) Get(_ context.Context, uuid string) (*db.CredentialOfferDocument, error) {
+func (m *memoryIdentityMappingStore) SearchMappings(_ context.Context, _ *db.SearchMappingsQuery) ([]*model.IdentityMapping, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	doc, ok := m.offers[uuid]
-	if !ok {
-		return nil, fmt.Errorf("credential offer not found: %s", uuid)
+	var result []*model.IdentityMapping
+	for _, mapping := range m.mappings {
+		result = append(result, mapping)
 	}
-	return doc, nil
+	return result, nil
 }
 
-func (m *memoryCredentialOfferStore) Delete(_ context.Context, uuid string) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	delete(m.offers, uuid)
+func (m *memoryIdentityMappingStore) CreateMappings(ctx context.Context, mappings []*model.IdentityMapping) error {
+	for _, mapping := range mappings {
+		if err := m.CreateMapping(ctx, mapping); err != nil {
+			return err
+		}
+	}
 	return nil
 }

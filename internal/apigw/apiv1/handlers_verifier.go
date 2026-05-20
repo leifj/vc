@@ -126,15 +126,15 @@ func (c *Client) VerificationRequestObject(ctx context.Context, req *Verificatio
 
 	c.log.Debug("Authorization request", "request", authorizationRequest)
 
-	signedJWT, err := authorizationRequest.Sign(ctx, c.pkiSigner, c.pkiSignerChain)
+	reply, err := authorizationRequest.Sign(ctx, c.pkiSigner, c.pkiSignerChain)
 	if err != nil {
 		c.log.Error(err, "failed to sign authorization request")
 		return "", err
 	}
 
-	c.log.Debug("Signed JWT", "jwt", signedJWT)
+	c.log.Debug("Signed JWT", "jwt", reply)
 
-	return signedJWT, nil
+	return reply, nil
 }
 
 type VerificationDirectPostRequest struct {
@@ -209,8 +209,11 @@ func (c *Client) VerificationDirectPost(ctx context.Context, req *VerificationDi
 		return nil, errors.New("DCQL query has no credential queries")
 	}
 	for _, cq := range authCtx.DCQLQuery.Credentials {
-		if token, ok := vpResponse.VPToken[cq.ID]; ok {
-			vpToken = token
+		if tokens, ok := vpResponse.VPToken[cq.ID]; ok && len(tokens) > 0 {
+			if len(tokens) > 1 {
+				c.log.Info("multiple VP tokens received for credential query, using first", "credential_query_id", cq.ID, "count", len(tokens))
+			}
+			vpToken = tokens[0]
 			break
 		}
 	}

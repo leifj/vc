@@ -1,7 +1,7 @@
 //go:build integration
 
 // Package integration contains integration tests that run against the real
-// docker-compose stack (apigw, verifier, mockas, issuer, registry, mongo).
+// docker-compose stack (apigw, verifier, issuer, registry, mongo).
 //
 // Prerequisites:
 //   - The stack must be running: docker compose up -d
@@ -53,7 +53,6 @@ import (
 var (
 	apigwURL    = envOrDefault("STACK_APIGW_URL", "https://172.16.50.2:8080")     // NOSONAR
 	verifierURL = envOrDefault("STACK_VERIFIER_URL", "https://172.16.50.6:8080")  // NOSONAR
-	mockasURL   = envOrDefault("STACK_MOCKAS_URL", "https://172.16.50.13:8080")   // NOSONAR
 	mockOIDCURL = envOrDefault("STACK_MOCK_OIDC_URL", "http://172.16.50.30:8080") // NOSONAR
 
 	// The public URLs the services use for self-referencing
@@ -244,7 +243,6 @@ func TestStack_Health(t *testing.T) {
 	}{
 		{"apigw", apigwURL + "/health"},
 		{"verifier", verifierURL + "/health"},
-		{"mockas", mockasURL + "/health"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			resp, err := http.Get(tc.url)
@@ -318,9 +316,16 @@ func seedDocument(t *testing.T, scope, identityMappingID, givenName, familyName,
 		DocumentData: map[string]any{
 			"given_name":        givenName,
 			"family_name":       familyName,
-			"birth_date":        birthDate,
+			"birthdate":         birthDate,
+			"date_of_expiry":    "2030-01-01T00:00:00Z",
 			"issuing_country":   "SE",
 			"issuing_authority": "Test Authority",
+			"nationalities":     []string{"SE"},
+			"place_of_birth": map[string]any{
+				"country":  "SE",
+				"locality": "Stockholm",
+				"region":   "Stockholm",
+			},
 		},
 	}
 
@@ -368,10 +373,10 @@ func getCredentialOfferURL(t *testing.T, authenticSource, scope, documentID stri
 
 func TestStack_VCI_MockNextAndOffer(t *testing.T) {
 	docID, authSource := seedDocument(t,
-		"pid_1_5", "im-"+uuid.New().String()[:8],
+		"pid", "im-"+uuid.New().String()[:8],
 		"Test", "Walker", "1990-01-15")
 
-	offerURL := getCredentialOfferURL(t, authSource, "pid_1_5", docID)
+	offerURL := getCredentialOfferURL(t, authSource, "pid", docID)
 
 	// Parse the credential_offer from the URL
 	parsed, err := url.Parse(offerURL)
@@ -422,7 +427,7 @@ func TestStack_VCI_PAR(t *testing.T) {
 
 func TestStack_VCI_FullAuthCodeFlow(t *testing.T) {
 	// This test exercises the complete OpenID4VCI authorization_code flow:
-	// 1. Seed mock data via mockas
+	// 1. Seed mock data via apigw
 	// 2. Get credential offer via notification
 	// 3. PAR request
 	// 4. Authorize → OpenID4VP consent → user lookup → get auth code
@@ -435,10 +440,10 @@ func TestStack_VCI_FullAuthCodeFlow(t *testing.T) {
 	birthDate := "1990-05-20"
 
 	// Step 1: Seed data
-	docID, authSource := seedDocument(t, "pid_1_5", identityMappingID, givenName, familyName, birthDate)
+	docID, authSource := seedDocument(t, "pid", identityMappingID, givenName, familyName, birthDate)
 
 	// Step 2: Get credential offer
-	offerURL := getCredentialOfferURL(t, authSource, "pid_1_5", docID)
+	offerURL := getCredentialOfferURL(t, authSource, "pid", docID)
 	parsed, err := url.Parse(offerURL)
 	require.NoError(t, err)
 	offerJSON := parsed.Query().Get("credential_offer")
@@ -463,7 +468,7 @@ func TestStack_VCI_FullAuthCodeFlow(t *testing.T) {
 		"state":                 {state},
 		"code_challenge":        {codeChallenge},
 		"code_challenge_method": {"S256"},
-		"scope":                 {"pid_1_5"},
+		"scope":                 {"pid"},
 	}
 
 	// Extract issuer_state from the offer grants
@@ -516,8 +521,8 @@ func TestStack_VCI_WalletClient(t *testing.T) {
 	familyName := "Client"
 	birthDate := "1985-03-12"
 
-	docID, authSource := seedDocument(t, "pid_1_5", identityMappingID, givenName, familyName, birthDate)
-	offerURL := getCredentialOfferURL(t, authSource, "pid_1_5", docID)
+	docID, authSource := seedDocument(t, "pid", identityMappingID, givenName, familyName, birthDate)
+	offerURL := getCredentialOfferURL(t, authSource, "pid", docID)
 
 	// Parse offer to get issuer_state
 	parsed, err := url.Parse(offerURL)
@@ -541,7 +546,7 @@ func TestStack_VCI_WalletClient(t *testing.T) {
 		"state":                 {state},
 		"code_challenge":        {codeChallenge},
 		"code_challenge_method": {"S256"},
-		"scope":                 {"pid_1_5"},
+		"scope":                 {"pid"},
 	}
 	if authCodeGrant, ok := offer.Grants["authorization_code"]; ok {
 		if grantMap, ok := authCodeGrant.(map[string]any); ok {
@@ -570,7 +575,7 @@ func TestStack_VCI_WalletClient(t *testing.T) {
 				Type: "vci",
 				VCI: &config.VCIScenario{
 					IssuerURL:                 apigwURL,
-					Scope:                     "pid_1_5",
+					Scope:                     "pid",
 					RedirectURI:               oauthRedirect,
 					UseDPoP:                   true,
 					PreAuthorizedCode:         "", // Using auth code
@@ -596,8 +601,8 @@ func TestStack_VCI_WalletClient(t *testing.T) {
 func getAuthCodeForNegativeTests(t *testing.T) (authCode, codeVerifier string, signingKey *ecdsa.PrivateKey) {
 	t.Helper()
 	identityMappingID := "neg-" + uuid.New().String()[:8]
-	docID, authSource := seedDocument(t, "pid_1_5", identityMappingID, "NegTest", "Security", "1985-03-15")
-	offerURL := getCredentialOfferURL(t, authSource, "pid_1_5", docID)
+	docID, authSource := seedDocument(t, "pid", identityMappingID, "NegTest", "Security", "1985-03-15")
+	offerURL := getCredentialOfferURL(t, authSource, "pid", docID)
 
 	parsed, err := url.Parse(offerURL)
 	require.NoError(t, err)
@@ -616,7 +621,7 @@ func getAuthCodeForNegativeTests(t *testing.T) (authCode, codeVerifier string, s
 		"state":                 {uuid.New().String()},
 		"code_challenge":        {codeChallenge},
 		"code_challenge_method": {"S256"},
-		"scope":                 {"pid_1_5"},
+		"scope":                 {"pid"},
 	}
 	if authCodeGrant, ok := offer.Grants["authorization_code"]; ok {
 		if grantMap, ok := authCodeGrant.(map[string]any); ok {
@@ -646,7 +651,7 @@ func TestStack_VCI_PAR_UnknownClientID(t *testing.T) {
 		"state":                 {uuid.New().String()},
 		"code_challenge":        {"dummychallenge"},
 		"code_challenge_method": {"S256"},
-		"scope":                 {"pid_1_5"},
+		"scope":                 {"pid"},
 	}
 	resp, err := http.Post(apigwURL+"/op/par", "application/x-www-form-urlencoded", strings.NewReader(data.Encode()))
 	require.NoError(t, err)
@@ -665,7 +670,7 @@ func TestStack_VCI_PAR_BadRedirectURI(t *testing.T) {
 		"state":                 {uuid.New().String()},
 		"code_challenge":        {"dummychallenge"},
 		"code_challenge_method": {"S256"},
-		"scope":                 {"pid_1_5"},
+		"scope":                 {"pid"},
 	}
 	resp, err := http.Post(apigwURL+"/op/par", "application/x-www-form-urlencoded", strings.NewReader(data.Encode()))
 	require.NoError(t, err)
@@ -901,7 +906,7 @@ func TestStack_VCI_Credential_NoDPoP(t *testing.T) {
 	proofJWT := createProofJWT(t, rewriteInternalToPublic(issuerMeta.CredentialEndpoint),
 		tokenResp.CNonce, signingKey)
 	reqBody, _ := json.Marshal(map[string]any{
-		"credential_configuration_id": "urn:eudi:pid:arf-1.5:1",
+		"credential_configuration_id": "pid",
 		"proofs":                      map[string]any{"jwt": []string{proofJWT}},
 	})
 
@@ -1034,8 +1039,8 @@ func TestStack_E2E_VCI_Then_VP(t *testing.T) {
 	birthDate := "1992-07-04"
 
 	// VCI: Seed + offer + PAR + consent + token + credential
-	docID, authSource := seedDocument(t, "pid_1_5", identityMappingID, givenName, familyName, birthDate)
-	offerURL := getCredentialOfferURL(t, authSource, "pid_1_5", docID)
+	docID, authSource := seedDocument(t, "pid", identityMappingID, givenName, familyName, birthDate)
+	offerURL := getCredentialOfferURL(t, authSource, "pid", docID)
 
 	parsed, err := url.Parse(offerURL)
 	require.NoError(t, err)
@@ -1055,7 +1060,7 @@ func TestStack_E2E_VCI_Then_VP(t *testing.T) {
 		"state":                 {uuid.New().String()},
 		"code_challenge":        {codeChallenge},
 		"code_challenge_method": {"S256"},
-		"scope":                 {"pid_1_5"},
+		"scope":                 {"pid"},
 	}
 	if authCodeGrant, ok := offer.Grants["authorization_code"]; ok {
 		if grantMap, ok := authCodeGrant.(map[string]any); ok {
