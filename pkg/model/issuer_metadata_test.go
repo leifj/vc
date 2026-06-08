@@ -95,6 +95,79 @@ func TestIssuerMetadata_Generate_VCTMDisplay(t *testing.T) {
 	assert.Equal(t, "VCTM Description", credConfig.CredentialMetadata.Display[0].Description)
 }
 
+func TestIssuerMetadata_Generate_VCTMDisplay_RenderingWithoutLogo(t *testing.T) {
+	cfg := &IssuerMetadata{}
+
+	// VCTM with rendering.simple but no logo — must not panic
+	mockVCTM := &sdjwtvc.VCTM{
+		VCT:  "urn:demo:1",
+		Name: "Demo",
+		Display: []sdjwtvc.VCTMDisplay{
+			{
+				Locale: "en-US",
+				Name:   "Demo",
+				Rendering: &sdjwtvc.Rendering{
+					Simple: &sdjwtvc.SimpleRendering{
+						BackgroundColor: "#1a365d",
+						TextColor:       "#ffffff",
+					},
+				},
+			},
+		},
+	}
+
+	credMeta := map[string]*CredentialMetadata{
+		"demo": {VCTM: mockVCTM},
+	}
+
+	ctx := context.Background()
+	metadata, err := cfg.Generate(ctx, "https://issuer.example.com", credMeta)
+	require.NoError(t, err)
+
+	credConfig, exists := metadata.CredentialConfigurationsSupported["demo"]
+	require.True(t, exists)
+	require.NotNil(t, credConfig.CredentialMetadata)
+	require.Len(t, credConfig.CredentialMetadata.Display, 1)
+	assert.Equal(t, "#1a365d", credConfig.CredentialMetadata.Display[0].BackgroundColor)
+	assert.Equal(t, "#ffffff", credConfig.CredentialMetadata.Display[0].TextColor)
+	assert.Nil(t, credConfig.CredentialMetadata.Display[0].Logo)
+}
+
+func TestIssuerMetadata_Generate_VCTMDisplay_RenderingNilSimple(t *testing.T) {
+	cfg := &IssuerMetadata{}
+
+	// VCTM with rendering but nil simple — must not panic
+	mockVCTM := &sdjwtvc.VCTM{
+		VCT:  "urn:demo:2",
+		Name: "Demo2",
+		Display: []sdjwtvc.VCTMDisplay{
+			{
+				Locale: "en-US",
+				Name:   "Demo2",
+				Rendering: &sdjwtvc.Rendering{
+					SVGTemplates: []sdjwtvc.SVGTemplates{
+						{URI: "data:image/svg+xml;base64,abc"},
+					},
+				},
+			},
+		},
+	}
+
+	credMeta := map[string]*CredentialMetadata{
+		"demo2": {VCTM: mockVCTM},
+	}
+
+	ctx := context.Background()
+	metadata, err := cfg.Generate(ctx, "https://issuer.example.com", credMeta)
+	require.NoError(t, err)
+
+	credConfig, exists := metadata.CredentialConfigurationsSupported["demo2"]
+	require.True(t, exists)
+	require.NotNil(t, credConfig.CredentialMetadata)
+	require.Len(t, credConfig.CredentialMetadata.Display, 1)
+	assert.Equal(t, "", credConfig.CredentialMetadata.Display[0].BackgroundColor)
+}
+
 func TestIssuerMetadata_Generate_CustomCryptoBindingMethods(t *testing.T) {
 	cfg := &IssuerMetadata{
 		CryptographicBindingMethodsSupported: []string{"jwk", "did:key"},
