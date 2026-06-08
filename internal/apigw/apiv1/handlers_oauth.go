@@ -199,6 +199,7 @@ func (c *Client) OAuthToken(ctx context.Context, req *openid4vci.TokenRequest) (
 
 	// Validate DPoP BEFORE consuming the authorization code (RFC 9449 §4).
 	// This ensures a stolen code cannot be consumed without a valid DPoP proof.
+	var dpopThumbprint string
 	if req.DPOP != "" {
 		dpop, dpopErr := oauth2.ValidateAndParseDPoPJWT(req.DPOP)
 		if dpopErr != nil {
@@ -206,6 +207,8 @@ func (c *Client) OAuthToken(ctx context.Context, req *openid4vci.TokenRequest) (
 			return nil, oauth2.NewOAuthErrorWithCause(oauth2.ErrCodeInvalidDPoPProof,
 				dpopErr.Error(), 400, dpopErr)
 		}
+
+		dpopThumbprint = dpop.Thumbprint
 
 		unique, err := c.cacheService.DPopJTI.SetNX(ctx, dpop.JTI, true)
 		if err != nil {
@@ -255,9 +258,19 @@ func (c *Client) OAuthToken(ctx context.Context, req *openid4vci.TokenRequest) (
 	}
 
 	// Now consume the authorization code (after DPoP and client binding are validated)
-	authorizationContext, err := c.cacheService.AuthContext.ForfeitAuthorizationCode(ctx, &cache.AuthorizationContext{
-		Code: code,
-	})
+	var authorizationContext *cache.AuthorizationContext
+	var err error
+	if isPreAuthFlow {
+		// Pre-authorized codes can be redeemed by multiple distinct clients
+		// (each identified by a unique DPoP key). This supports the OID4VCI
+		// happy-flow-multiple-clients scenario where one credential offer
+		// serves multiple wallets.
+		authorizationContext, err = c.cacheService.AuthContext.RedeemPreAuthorizedCode(ctx, code, dpopThumbprint)
+	} else {
+		authorizationContext, err = c.cacheService.AuthContext.ForfeitAuthorizationCode(ctx, &cache.AuthorizationContext{
+			Code: code,
+		})
+	}
 	if err != nil {
 		c.log.Error(err, "failed to get authorization")
 		return nil, oauth2.NewOAuthErrorWithCause(oauth2.ErrCodeInvalidGrant,
@@ -315,9 +328,36 @@ func (c *Client) OAuthToken(ctx context.Context, req *openid4vci.TokenRequest) (
 		ExpiresAt:   time.Now().Add(time.Duration(reply.ExpiresIn) * time.Second).Unix(),
 	}
 
-	if err := c.cacheService.AuthContext.AddToken(ctx, authorizationContext.Code, tokenDoc); err != nil {
-		c.log.Error(err, "failed to add token")
-		return nil, err
+	if isPreAuthFlow {
+		// Pre-auth flow: create an independent child session for this client.
+		// The shared auth context remains intact so other clients can also redeem.
+		childSessionID, genErr := crypto.GenerateSecureToken(0, 32)
+		if genErr != nil {
+			return nil, fmt.Errorf("failed to generate child session ID: %w", genErr)
+		}
+		childSession := &cache.AuthorizationContext{
+			SessionID:            childSessionID,
+			SourceSessionID:      authorizationContext.SessionID,
+			Status:               "token_issued",
+			CreatedAt:            time.Now(),
+			ExpiresAt:            authorizationContext.ExpiresAt,
+			Scopes:               authorizationContext.Scopes,
+			Nonce:                authorizationContext.Nonce,
+			AuthorizationDetails: authorizationContext.AuthorizationDetails,
+			AuthProvider:         authorizationContext.AuthProvider,
+			Identifier:           authorizationContext.Identifier,
+			DataSource:           authorizationContext.DataSource,
+			Token:                tokenDoc,
+		}
+		if err := c.cacheService.AuthContext.Save(ctx, childSession); err != nil {
+			c.log.Error(err, "failed to save child session for pre-auth client")
+			return nil, err
+		}
+	} else {
+		if err := c.cacheService.AuthContext.AddToken(ctx, authorizationContext.Code, tokenDoc); err != nil {
+			c.log.Error(err, "failed to add token")
+			return nil, err
+		}
 	}
 
 	c.log.Debug("OAuthToken complete")
