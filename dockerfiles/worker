@@ -1,5 +1,16 @@
+# Build tools stage — installs protobuf compiler, swagger, and gRPC codegen.
+# Inlined from dockerfiles/gobuild so the Dockerfile is self-contained.
+# Use GOBUILD_IMAGE to override with a pre-built image for faster local builds:
+#   docker build --build-arg GOBUILD_IMAGE=docker.sunet.se/iam_vc/gobuild:local ...
+ARG GOBUILD_IMAGE=golang:1.26.4
+FROM ${GOBUILD_IMAGE} AS gobuild
+WORKDIR /go/src/app
+COPY Makefile .
+RUN make install-tools
+RUN make clean-apt-cache
+
 # Compile
-FROM docker.sunet.se/iam_vc/gobuild:local AS builder
+FROM gobuild AS builder
 
 ARG SERVICE_NAME
 ARG BUILDTAG
@@ -20,9 +31,14 @@ RUN make proto-${SERVICE_NAME}
 
 # Build with caching for both build cache and module cache
 # GO_BUILD_TAGS is optional - if set, adds -tags flag
+# CGO is disabled for static builds; enabled when build tags (e.g. pkcs11) require it
+# TARGETARCH is automatically set by Docker buildx for multi-platform builds;
+# defaults to amd64 for plain docker build.
+ARG CGO_ENABLED=0
+ARG TARGETARCH=amd64
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
-    GOOS=linux GOARCH=amd64 go build -v ${GO_BUILD_TAGS:+-tags "$GO_BUILD_TAGS"} -o bin/vc_$SERVICE_NAME -ldflags \
+    CGO_ENABLED=${CGO_ENABLED} GOOS=linux GOARCH=${TARGETARCH} go build -v ${GO_BUILD_TAGS:+-tags "$GO_BUILD_TAGS"} -o bin/vc_$SERVICE_NAME -ldflags \
     "-X vc/pkg/model.BuildVariableGitCommit=$(git rev-list -1 HEAD) \
     -X vc/pkg/model.BuildVariableGitBranch=$(git rev-parse --abbrev-ref HEAD) \
     -X vc/pkg/model.BuildVariableTimestamp=$(date +'%F:T%TZ') \
