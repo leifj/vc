@@ -1,0 +1,84 @@
+name: Build and Publish Docker Images
+
+# Builds multi-arch container images for all vc services using the
+# sirosfoundation reusable Docker workflow.
+#
+# Triggers:
+#   - Semver tags (v*.*.*): automatic build and push
+#   - workflow_dispatch: manual build from any git ref
+#
+# Images: ghcr.io/sirosfoundation/vc/{verifier,registry,apigw,issuer}
+
+on:
+  push:
+    tags: ['v[0-9]*.[0-9]*.[0-9]*']
+  workflow_dispatch:
+    inputs:
+      git_ref:
+        description: 'Git ref to build (tag, branch, or SHA)'
+        required: true
+        default: 'main'
+      image_tag:
+        description: 'Custom image tag (auto-derived from ref if empty)'
+        required: false
+
+jobs:
+  verifier:
+    uses: sirosfoundation/.github/.github/workflows/docker-build-push.yml@main
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+    with:
+      image-name: sirosfoundation/vc/verifier
+      dockerfile: ./dockerfiles/worker
+      build-args: |
+        SERVICE_NAME=verifier
+        BUILDTAG=${{ inputs.image_tag || github.ref_name }}
+      custom-ref: ${{ inputs.git_ref || '' }}
+      custom-tag: ${{ inputs.image_tag || '' }}
+
+  registry:
+    uses: sirosfoundation/.github/.github/workflows/docker-build-push.yml@main
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+    with:
+      image-name: sirosfoundation/vc/registry
+      dockerfile: ./dockerfiles/worker
+      build-args: |
+        SERVICE_NAME=registry
+        BUILDTAG=${{ inputs.image_tag || github.ref_name }}
+      custom-ref: ${{ inputs.git_ref || '' }}
+      custom-tag: ${{ inputs.image_tag || '' }}
+
+  apigw:
+    uses: sirosfoundation/.github/.github/workflows/docker-build-push.yml@main
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+    with:
+      image-name: sirosfoundation/vc/apigw
+      dockerfile: ./dockerfiles/worker
+      build-args: |
+        SERVICE_NAME=apigw
+        BUILDTAG=${{ inputs.image_tag || github.ref_name }}
+      custom-ref: ${{ inputs.git_ref || '' }}
+      custom-tag: ${{ inputs.image_tag || '' }}
+
+  issuer:
+    uses: sirosfoundation/.github/.github/workflows/docker-build-push.yml@main
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+    with:
+      image-name: sirosfoundation/vc/issuer
+      dockerfile: ./dockerfiles/worker
+      build-args: |
+        SERVICE_NAME=issuer
+        BUILDTAG=${{ inputs.image_tag || github.ref_name }}
+      custom-ref: ${{ inputs.git_ref || '' }}
+      custom-tag: ${{ inputs.image_tag || '' }}
