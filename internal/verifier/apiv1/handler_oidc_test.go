@@ -1067,6 +1067,53 @@ func TestGenerateIDToken(t *testing.T) {
 	assert.Equal(t, "john@example.com", claims["email"])
 }
 
+// TestGenerateIDToken_NoNonce tests that nonce claim is omitted when no nonce was provided
+func TestGenerateIDToken_NoNonce(t *testing.T) {
+	ctx := t.Context()
+
+	client, _ := CreateTestClientWithMock(nil)
+	client.cfg.Verifier.Outbound.OIDCProvider.Issuer = "https://issuer.example.com"
+	client.cfg.Verifier.Outbound.OIDCProvider.IDTokenDuration = 3600
+	client.cfg.Verifier.Outbound.OIDCProvider.SubjectType = "public"
+	client.cfg.Verifier.Outbound.OIDCProvider.SubjectSalt = "test-salt"
+
+	// Set up signing key
+	key := generateTestRSAKey(t)
+	require.NoError(t, client.SetSigningKeyForTesting(key))
+
+	authCtx := &cache.AuthorizationContext{
+		SessionID: "session-1",
+		ClientID:  "test-client",
+		Nonce:     "",
+		WalletID:  "wallet-123",
+		VerifiedClaims: map[string]any{
+			"name": "John Doe",
+		},
+	}
+
+	dbClient := &db.Client{
+		ClientID: "test-client",
+	}
+
+	idToken, err := client.generateIDToken(ctx, authCtx, dbClient)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, idToken)
+
+	// Parse and verify token
+	token, err := jwt.Parse(idToken, func(token *jwt.Token) (any, error) {
+		return &key.PublicKey, nil
+	})
+	assert.NoError(t, err)
+	assert.True(t, token.Valid)
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	assert.True(t, ok)
+
+	// Verify nonce claim is NOT present when no nonce was provided
+	_, nonceExists := claims["nonce"]
+	assert.False(t, nonceExists, "nonce claim should not be present when no nonce was provided in the authorize request")
+}
+
 // TestAuthenticateOIDCClient tests client authentication
 func TestAuthenticateOIDCClient(t *testing.T) {
 	client, _ := CreateTestClientWithMock(nil)
