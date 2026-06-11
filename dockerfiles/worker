@@ -3,13 +3,14 @@
 # Use GOBUILD_IMAGE to override with a pre-built image for faster local builds:
 #   docker build --build-arg GOBUILD_IMAGE=docker.sunet.se/iam_vc/gobuild:local ...
 ARG GOBUILD_IMAGE=golang:1.26.4
-FROM ${GOBUILD_IMAGE} AS gobuild
+FROM --platform=$BUILDPLATFORM ${GOBUILD_IMAGE} AS gobuild
 WORKDIR /go/src/app
 COPY Makefile .
 RUN make install-tools
 RUN make clean-apt-cache
 
-# Compile
+# Compile — pinned to BUILDPLATFORM so cross-compilation works even
+# when GOBUILD_IMAGE is single-arch; TARGETARCH drives GOARCH below.
 FROM gobuild AS builder
 
 ARG SERVICE_NAME
@@ -32,8 +33,8 @@ RUN make proto-${SERVICE_NAME}
 # Build with caching for both build cache and module cache
 # GO_BUILD_TAGS is optional - if set, adds -tags flag
 # CGO is disabled for static builds; enabled when build tags (e.g. pkcs11) require it
-# TARGETARCH is automatically set by Docker buildx for multi-platform builds;
-# defaults to amd64 for plain docker build.
+# TARGETARCH is set by BuildKit to the target platform (e.g. amd64, arm64).
+# The explicit default ensures plain 'docker build' without BuildKit still works.
 ARG CGO_ENABLED=0
 ARG TARGETARCH=amd64
 RUN --mount=type=cache,target=/root/.cache/go-build \
