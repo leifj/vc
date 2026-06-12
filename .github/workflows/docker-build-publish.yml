@@ -1,0 +1,64 @@
+---
+name: "Create and publish container images"
+
+on:
+  push:
+    # Restrict usage by tag protection rules
+    tags:
+      - "v*.*.**"
+    branches:
+      - "sirosid/**"
+      - "release/sirosid/**"
+
+env:
+  REGISTRY: "ghcr.io"
+
+jobs:
+  "build-and-push-image":
+    runs-on: "ubuntu-24.04"
+    permissions:
+      contents: "read"
+      packages: "write"
+
+    steps:
+      # GHCR doesn't accept uppercase characters in repository path, below enables easier forking
+      - name: "Extract lowercase version of full registry path"
+        id: "lowercaser"
+        run: >
+          echo "registry_full_path=${REGISTRY}/${{ github.repository }}"
+          | tr '[[:upper:]]' '[[:lower:]]' >> "${GITHUB_OUTPUT}"
+
+      - name: "Extract container image version tag"
+        id: "version_extractor"
+        run: |
+          if [[ "${{ github.ref_type }}" == "branch" ]]; then
+            # Extract "short" version of commit hash
+            VERSION_LABEL="dev-${GITHUB_SHA::7}"
+          else
+            VERSION_LABEL="${{ github.ref_name }}"
+          fi
+          echo "version_label=${VERSION_LABEL}" >> "${GITHUB_OUTPUT}"
+
+      - name: "Checkout repository"
+        # Pinned version: https://github.com/actions/checkout/releases/tag/v6.0.2
+        uses: "actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd"
+
+      - name: "Setup Buildx for Docker"
+        # Pinned version: https://github.com/docker/setup-buildx-action/releases/tag/v4.0.0
+        uses: "docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd"
+
+      - name: "Login to the container registry"
+        # Pinned version:  https://github.com/docker/login-action/releases/tag/v4.0.0
+        uses: "docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1"
+        with:
+          registry: "${{ env.REGISTRY }}"
+          username: "${{ github.actor }}"
+          password: "${{ secrets.GITHUB_TOKEN }}"
+
+      - name: "Build and push container images"
+        run: |
+          DOCKER_REGISTRY="${{ steps.lowercaser.outputs.registry_full_path }}"
+          VERSION_LABEL="${{ steps.version_extractor.outputs.version_label }}"
+          make docker-build-gobuild VERSION=local
+          make docker-build "DOCKER_REGISTRY=${DOCKER_REGISTRY}" "VERSION=${VERSION_LABEL}"
+          make docker-push "DOCKER_REGISTRY=${DOCKER_REGISTRY}" "VERSION=${VERSION_LABEL}"
