@@ -1,0 +1,205 @@
+{  "scope": "mdl",
+  "vct": "org.iso.18013.5.1.mDL",
+  "name": "Mobile Driving Licence",
+  "description": "An ISO/IEC 18013-5 compliant mobile driving licence credential, issued in mdoc (CBOR/COSE) format.",
+  "claims": [
+    {
+      "path": ["org.iso.18013.5.1", "family_name"],
+      "mandatory": true,
+      "display": [{ "name": "Family Name", "label": "Last Name", "locale": "en" }],
+      "svg_id": "family_name"
+    },
+    {
+      "path": ["org.iso.18013.5.1", "given_name"],
+      "mandatory": true,
+      "display": [{ "name": "Given Name", "label": "First Name", "locale": "en" }],
+      "svg_id": "given_name"
+    },
+    {
+      "path": ["org.iso.18013.5.1", "birth_date"],
+      "mandatory": true,
+      "display": [{ "name": "Date of Birth", "label": "Date of Birth", "locale": "en" }],
+      "svg_id": "birth_date"
+    },
+    {
+      "path": ["org.iso.18013.5.1", "issue_date"],
+      "mandatory": true,
+      "display": [{ "name": "Issue Date", "label": "Issue Date", "locale": "en" }],
+      "svg_id": "issue_date"
+    },
+    {
+      "path": ["org.iso.18013.5.1", "expiry_date"],
+      "mandatory": true,
+      "display": [{ "name": "Expiry Date", "label": "Expiry Date", "locale": "en" }],
+      "svg_id": "expiry_date"
+    },
+    {
+      "path": ["org.iso.18013.5.1", "issuing_country"],
+      "mandatory": true,
+      "display": [{ "name": "Issuing Country", "label": "Issuing Country", "locale": "en" }],
+      "svg_id": "issuing_country"
+    },
+    {
+      "path": ["org.iso.18013.5.1", "issuing_authority"],
+      "mandatory": true,
+      "display": [{ "name": "Issuing Authority", "label": "Issuing Authority", "locale": "en" }],
+      "svg_id": "issuing_authority"
+    },
+    {
+      "path": ["org.iso.18013.5.1", "document_number"],
+      "mandatory": true,
+      "display": [{ "name": "Document Number", "label": "Licence Number", "locale": "en" }],
+      "svg_id": "document_number"
+    },
+    {
+      "path": ["org.iso.18013.5.1", "portrait"],
+      "mandatory": true,
+      "display": [{ "name": "Portrait", "label": "Photo", "locale": "en" }],
+      "svg_id": "portrait"
+    },
+    {
+      "path": ["org.iso.18013.5.1", "driving_privileges"],
+      "mandatory": true,
+      "display": [{ "name": "Driving Privileges", "label": "Driving Privileges", "locale": "en" }],
+      "svg_id": "driving_privileges"
+    },
+    {
+      "path": ["org.iso.18013.5.1", "un_distinguishing_sign"],
+      "mandatory": true,
+      "display": [{ "name": "UN Distinguishing Sign", "label": "UN Distinguishing Sign", "locale": "en" }],
+      "svg_id": "un_distinguishing_sign"
+    },
+    {
+      "path": ["org.iso.18013.5.1", "administrative_number"],
+      "mandatory": false,
+      "display": [{ "name": "Administrative Number", "label": "Administrative Number", "locale": "en" }],
+      "svg_id": "administrative_number"
+    },
+    {
+      "path": ["org.iso.18013.5.1", "sex"],
+      "mandatory": false,
+      "display": [{ "name": "Sex", "label": "Sex", "locale": "en" }],
+      "svg_id": "sex"
+    },
+    {
+      "path": ["org.iso.18013.5.1", "height"],
+      "mandatory": false,
+      "display": [{ "name": "Height", "label": "Height", "locale": "en" }],
+      "svg_id": "height"
+    },
+    {
+      "path": ["org.iso.18013.5.1", "weight"],
+      "mandatory": false,
+      "display": [{ "name": "Weight", "label": "Weight", "locale": "en" }],
+      "svg_id": "weight"
+    },
+    {
+      "path": ["org.iso.18013.5.1", "eye_colour"],
+      "mandatory": false,
+      "display": [{ "name": "Eye Colour", "label": "Eye Colour", "locale": "en" }],
+      "svg_id": "eye_colour"
+    },
+    {
+      "path": ["org.iso.18013.5.1", "hair_colour"],
+      "mandatory": false,
+      "display": [{ "name": "Hair Colour", "label": "Hair Colour", "locale": "en" }],
+      "svg_id": "hair_colour"
+    },
+    {
+      "path": ["org.iso.18013.5.1", "birth_place"],
+      "mandatory": false,
+      "display": [{ "name": "Birth Place", "label": "Place of Birth", "locale": "en" }],
+      "svg_id": "birth_place"
+    },
+    {
+      "path": ["org.iso.18013.5.1", "resident_address"],
+      "mandatory": false,
+      "display": [{ "name": "Resident Address", "label": "Resident Address", "locale": "en" }],
+      "svg_id": "resident_address"
+    },
+    {
+      "path": ["org.iso.18013.5.1", "portrait_capture_date"],
+      "mandatory": false,
+      "display": [{ "name": "Portrait Capture Date", "label": "Portrait Capture Date", "locale": "en" }],
+      "svg_id": "portrait_capture_date"
+    },
+    {
+      "path": ["org.iso.18013.5.1", "age_in_years"],
+      "mandatory": false,
+      "display": [{ "name": "Age in Years", "label": "Age in Years", "locale": "en" }],
+      "svg_id": "age_in_years"
+    },
+    {
+      "path": ["org.iso.18013.5.1", "age_birth_year"],
+      "mandatory": false,
+      "display": [{ "name": "Age Birth Year", "label": "Birth Year", "locale": "en" }],
+      "svg_id": "age_birth_year"
+    },
+    {
+      "path": ["org.iso.18013.5.1", "age_over_18"],
+      "mandatory": false,
+      "display": [{ "name": "Age Over 18", "label": "Age Over 18", "locale": "en" }],
+      "svg_id": "age_over_18"
+    },
+    {
+      "path": ["org.iso.18013.5.1", "age_over_21"],
+      "mandatory": false,
+      "display": [{ "name": "Age Over 21", "label": "Age Over 21", "locale": "en" }],
+      "svg_id": "age_over_21"
+    },
+    {
+      "path": ["org.iso.18013.5.1", "issuing_jurisdiction"],
+      "mandatory": false,
+      "display": [{ "name": "Issuing Jurisdiction", "label": "Issuing Jurisdiction", "locale": "en" }],
+      "svg_id": "issuing_jurisdiction"
+    },
+    {
+      "path": ["org.iso.18013.5.1", "nationality"],
+      "mandatory": false,
+      "display": [{ "name": "Nationality", "label": "Nationality", "locale": "en" }],
+      "svg_id": "nationality"
+    },
+    {
+      "path": ["org.iso.18013.5.1", "resident_city"],
+      "mandatory": false,
+      "display": [{ "name": "Resident City", "label": "Resident City", "locale": "en" }],
+      "svg_id": "resident_city"
+    },
+    {
+      "path": ["org.iso.18013.5.1", "resident_state"],
+      "mandatory": false,
+      "display": [{ "name": "Resident State", "label": "Resident State", "locale": "en" }],
+      "svg_id": "resident_state"
+    },
+    {
+      "path": ["org.iso.18013.5.1", "resident_postal_code"],
+      "mandatory": false,
+      "display": [{ "name": "Resident Postal Code", "label": "Resident Postal Code", "locale": "en" }],
+      "svg_id": "resident_postal_code"
+    },
+    {
+      "path": ["org.iso.18013.5.1", "resident_country"],
+      "mandatory": false,
+      "display": [{ "name": "Resident Country", "label": "Resident Country", "locale": "en" }],
+      "svg_id": "resident_country"
+    },
+    {
+      "path": ["org.iso.18013.5.1", "family_name_national_character"],
+      "mandatory": false,
+      "display": [{ "name": "Family Name (National Characters)", "label": "Last Name (Native)", "locale": "en" }],
+      "svg_id": "family_name_national_character"
+    },
+    {
+      "path": ["org.iso.18013.5.1", "given_name_national_character"],
+      "mandatory": false,
+      "display": [{ "name": "Given Name (National Characters)", "label": "First Name (Native)", "locale": "en" }],
+      "svg_id": "given_name_national_character"
+    },
+    {
+      "path": ["org.iso.18013.5.1", "signature_usual_mark"],
+      "mandatory": false,
+      "display": [{ "name": "Signature / Usual Mark", "label": "Signature or Usual Mark", "locale": "en" }],
+      "svg_id": "signature_usual_mark"
+    }
+  ]
+}
