@@ -74,6 +74,7 @@ func (cfg *MetadataConfig) GenerateIssuerMetadata(ctx context.Context) *Credenti
 	// Set claims if provided
 	if len(cfg.Claims) > 0 {
 		metadata.Claims = cfg.Claims
+	}
 
 	// Set mdoc IACA endpoint if provided
 	if cfg.MdocIacasURI != "" {
