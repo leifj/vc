@@ -63,6 +63,10 @@ func (m *MariaDBConfig) DSN() (string, error) {
 	// the migration driver to execute all of them. Harmless for ordinary
 	// single-statement queries.
 	cfg.MultiStatements = true
+	// Without this, DATE/DATETIME/TIMESTAMP columns are returned as raw
+	// []byte instead of time.Time, breaking any row struct field typed
+	// time.Time.
+	cfg.ParseTime = true
 
 	switch {
 	case m.CAFilePath != "" || m.CertFilePath != "" || m.KeyFilePath != "":
