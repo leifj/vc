@@ -128,7 +128,9 @@ func (mariaDBDialect) JSONContains(column string) string {
 }
 
 func (mariaDBDialect) JSONTextExtract(column, key string) string {
-	return fmt.Sprintf("%s->>'$.%s'", column, key)
+	// MariaDB does not support MySQL's "->>" shorthand operator; use the
+	// portable JSON_UNQUOTE(JSON_EXTRACT(...)) form instead.
+	return fmt.Sprintf("JSON_UNQUOTE(JSON_EXTRACT(%s, '$.%s'))", column, key)
 }
 
 func (mariaDBDialect) CaseInsensitiveLike(column string) string {
