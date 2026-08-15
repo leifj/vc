@@ -38,6 +38,19 @@ type Dialect interface {
 	// when a conflict occurs. If updateCols is empty, the upsert becomes a
 	// no-op-on-conflict insert (insert-if-absent).
 	UpsertClause(conflictCols, updateCols []string) string
+	// JSONContains returns a boolean SQL expression testing whether the JSON
+	// value in column contains all the keys/values of the JSON document
+	// bound to the next "?" placeholder (combine with Rebind as usual).
+	JSONContains(column string) string
+	// JSONTextExtract returns a SQL expression extracting the text value at
+	// the given top-level key of a JSON column.
+	JSONTextExtract(column, key string) string
+	// CaseInsensitiveLike returns a boolean SQL expression doing a
+	// case-insensitive substring match of column against the next "?"
+	// placeholder. On MariaDB this relies on the column's collation being
+	// case-insensitive (the default for this schema's text columns); it is
+	// not otherwise enforced at the SQL level the way Postgres's ILIKE is.
+	CaseInsensitiveLike(column string) string
 }
 
 // PostgresDialect is the Dialect implementation for PostgreSQL.
@@ -77,6 +90,18 @@ func (postgresDialect) UpsertClause(conflictCols, updateCols []string) string {
 	return fmt.Sprintf("ON CONFLICT (%s) DO UPDATE SET %s", strings.Join(conflictCols, ", "), strings.Join(sets, ", "))
 }
 
+func (postgresDialect) JSONContains(column string) string {
+	return column + " @> ?::jsonb"
+}
+
+func (postgresDialect) JSONTextExtract(column, key string) string {
+	return fmt.Sprintf("%s->>'%s'", column, key)
+}
+
+func (postgresDialect) CaseInsensitiveLike(column string) string {
+	return column + " ILIKE ?"
+}
+
 type mariaDBDialect struct{}
 
 func (mariaDBDialect) Name() string               { return "mariadb" }
@@ -96,4 +121,16 @@ func (mariaDBDialect) UpsertClause(conflictCols, updateCols []string) string {
 		sets[i] = fmt.Sprintf("%s = VALUES(%s)", c, c)
 	}
 	return fmt.Sprintf("ON DUPLICATE KEY UPDATE %s", strings.Join(sets, ", "))
+}
+
+func (mariaDBDialect) JSONContains(column string) string {
+	return fmt.Sprintf("JSON_CONTAINS(%s, ?)", column)
+}
+
+func (mariaDBDialect) JSONTextExtract(column, key string) string {
+	return fmt.Sprintf("%s->>'$.%s'", column, key)
+}
+
+func (mariaDBDialect) CaseInsensitiveLike(column string) string {
+	return column + " LIKE ?"
 }
