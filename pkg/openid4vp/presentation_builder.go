@@ -154,13 +154,30 @@ func copyDCQL(src *DCQL) *DCQL {
 
 	// Copy credentials
 	for i, cred := range src.Credentials {
+		meta := MetaQuery{
+			VCTValues:    append([]string{}, cred.Meta.VCTValues...),
+			DoctypeValue: cred.Meta.DoctypeValue,
+			PPIDContext:  cred.Meta.PPIDContext,
+		}
+		if len(cred.Meta.ZKSystemType) > 0 {
+			meta.ZKSystemType = make([]ZKSystemTypeSpec, len(cred.Meta.ZKSystemType))
+			for j, spec := range cred.Meta.ZKSystemType {
+				params := make(map[string]string, len(spec.Params))
+				for k, v := range spec.Params {
+					params[k] = v
+				}
+				meta.ZKSystemType[j] = ZKSystemTypeSpec{
+					ID:     spec.ID,
+					System: spec.System,
+					Params: params,
+				}
+			}
+		}
 		dst.Credentials[i] = CredentialQuery{
-			ID:       cred.ID,
-			Format:   cred.Format,
-			Multiple: cred.Multiple,
-			Meta: MetaQuery{
-				VCTValues: append([]string{}, cred.Meta.VCTValues...),
-			},
+			ID:                                cred.ID,
+			Format:                            cred.Format,
+			Multiple:                          cred.Multiple,
+			Meta:                              meta,
 			RequireCryptographicHolderBinding: cred.RequireCryptographicHolderBinding,
 		}
 
