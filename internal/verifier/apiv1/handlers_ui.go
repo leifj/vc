@@ -39,8 +39,14 @@ type UIPresetCredential struct {
 }
 
 // UIPresetMeta holds credential metadata for the preset.
+//
+// Which field applies depends on the credential's format (OpenID4VP 1.0
+// 6.4.1): vct_values for sd-jwt credentials, doctype_value for mso_mdoc.
+// They are mutually exclusive, hence omitempty on both - sending an empty
+// vct_values alongside a doctype, or vice versa, is a malformed query.
 type UIPresetMeta struct {
-	VCTValues []string `json:"vct_values"`
+	VCTValues    []string `json:"vct_values,omitempty"`
+	DoctypeValue string   `json:"doctype_value,omitempty"`
 }
 
 // UIPresetClaim is a claim path within a preset credential.
@@ -109,14 +115,20 @@ func (c *Client) UIMetadata(ctx context.Context) (*UIMetadataReply, error) {
 				}
 
 				uiCred := UIPresetCredential{
-					ID:   scope,
-					Meta: UIPresetMeta{VCTValues: []string{}},
+					ID: scope,
 				}
 
-				// Resolve format and VCT from credential_metadata
+				// Resolve format and the type constraint from
+				// credential_metadata. An mso_mdoc credential has no vct at
+				// all - DCQL constrains it by doctype_value instead
+				// (OpenID4VP 1.0 6.4.1) - so a preset over an mdoc scope was
+				// previously emitted with an empty vct_values and no doctype,
+				// which matches nothing in any wallet.
 				if meta != nil {
 					uiCred.Format = meta.Format
-					if v := meta.GetVCTURL(); v != "" {
+					if mddl := meta.GetMDDL(); mddl != nil && mddl.DocType != "" {
+						uiCred.Meta.DoctypeValue = mddl.DocType
+					} else if v := meta.GetVCTURL(); v != "" {
 						uiCred.Meta.VCTValues = []string{v}
 					} else if vctm := meta.GetVCTM(); vctm != nil {
 						uiCred.Meta.VCTValues = []string{vctm.VCT}
