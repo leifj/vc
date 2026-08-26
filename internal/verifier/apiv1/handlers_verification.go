@@ -313,6 +313,36 @@ func (c *Client) VerificationDirectPost(ctx context.Context, req *VerificationDi
 					}
 				}
 			}
+			// TEMPORARY debug log - remove once the empty-RequestedZkSystems
+			// bug is root-caused. Confirmed live: verifyOneDocument rejects
+			// with "zkSystemId ... was not offered", implying zkMeta.ZKSystemType
+			// is empty here despite the wallet's own consent screen having
+			// shown the correct DCQL-requested claims for this exact scope -
+			// this dumps exactly what authCtx.DCQLQuery looks like at this
+			// lookup to distinguish "never saved", "saved but lost on
+			// Mongo round-trip", and "saved correctly but this scope/format
+			// match fails" as the actual cause.
+			c.log.Info("ZK DCQL debug",
+				"scope", scope,
+				"dcqlQueryNil", authCtx.DCQLQuery == nil,
+				"credCount", func() int {
+					if authCtx.DCQLQuery == nil {
+						return -1
+					}
+					return len(authCtx.DCQLQuery.Credentials)
+				}(),
+				"credIDsAndFormats", func() []string {
+					if authCtx.DCQLQuery == nil {
+						return nil
+					}
+					out := make([]string, 0, len(authCtx.DCQLQuery.Credentials))
+					for _, cq := range authCtx.DCQLQuery.Credentials {
+						out = append(out, fmt.Sprintf("%s:%s:zkTypes=%d", cq.ID, cq.Format, len(cq.Meta.ZKSystemType)))
+					}
+					return out
+				}(),
+				"zkMetaZKSystemTypeLen", len(zkMeta.ZKSystemType),
+			)
 
 			// SessionTranscript for the OpenID4VP redirect flow. Its wire
 			// format is cross-checked against an independent CBOR library
