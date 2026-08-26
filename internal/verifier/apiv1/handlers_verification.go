@@ -299,8 +299,25 @@ func (c *Client) VerificationDirectPost(ctx context.Context, req *VerificationDi
 			// rather than silently skipping either check.
 			var zkMeta openid4vp.MetaQuery
 			var requestedClaimIDs []string
-			if authCtx.DCQLQuery != nil {
-				for _, cq := range authCtx.DCQLQuery.Credentials {
+			// authCtx.DCQLQuery is the Mongo-persisted copy - confirmed live
+			// (via a temporary debug log, since removed) that it comes back
+			// nil here even for a session whose consent screen the wallet
+			// just correctly rendered from the SAME original DCQL query,
+			// meaning the query itself was never lost, only this particular
+			// round-trip through AuthContext's Mongo store. Fall back to
+			// RequestObjectCache (an in-memory, non-Mongo cache keyed by
+			// RequestObjectID) - it holds the exact RequestObject that was
+			// signed and served to the wallet at /verification/request-object
+			// (see VerificationRequestObject), which necessarily carries the
+			// same DCQLQuery the wallet just demonstrably parsed correctly.
+			dcqlQuery := authCtx.DCQLQuery
+			if dcqlQuery == nil {
+				if requestObject, found := c.openid4vp.RequestObjectCache.Get(authCtx.RequestObjectID); found {
+					dcqlQuery = requestObject.DCQLQuery
+				}
+			}
+			if dcqlQuery != nil {
+				for _, cq := range dcqlQuery.Credentials {
 					if cq.ID == scope && openid4vp.IsMdocZkFormat(cq.Format) {
 						zkMeta = cq.Meta
 						for _, claim := range cq.Claims {
@@ -313,36 +330,6 @@ func (c *Client) VerificationDirectPost(ctx context.Context, req *VerificationDi
 					}
 				}
 			}
-			// TEMPORARY debug log - remove once the empty-RequestedZkSystems
-			// bug is root-caused. Confirmed live: verifyOneDocument rejects
-			// with "zkSystemId ... was not offered", implying zkMeta.ZKSystemType
-			// is empty here despite the wallet's own consent screen having
-			// shown the correct DCQL-requested claims for this exact scope -
-			// this dumps exactly what authCtx.DCQLQuery looks like at this
-			// lookup to distinguish "never saved", "saved but lost on
-			// Mongo round-trip", and "saved correctly but this scope/format
-			// match fails" as the actual cause.
-			c.log.Info("ZK DCQL debug",
-				"scope", scope,
-				"dcqlQueryNil", authCtx.DCQLQuery == nil,
-				"credCount", func() int {
-					if authCtx.DCQLQuery == nil {
-						return -1
-					}
-					return len(authCtx.DCQLQuery.Credentials)
-				}(),
-				"credIDsAndFormats", func() []string {
-					if authCtx.DCQLQuery == nil {
-						return nil
-					}
-					out := make([]string, 0, len(authCtx.DCQLQuery.Credentials))
-					for _, cq := range authCtx.DCQLQuery.Credentials {
-						out = append(out, fmt.Sprintf("%s:%s:zkTypes=%d", cq.ID, cq.Format, len(cq.Meta.ZKSystemType)))
-					}
-					return out
-				}(),
-				"zkMetaZKSystemTypeLen", len(zkMeta.ZKSystemType),
-			)
 
 			// SessionTranscript for the OpenID4VP redirect flow. Its wire
 			// format is cross-checked against an independent CBOR library
